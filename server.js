@@ -3,37 +3,47 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración del Proxy
 app.use('/', createProxyMiddleware({
     target: 'https://m.youtube.com',
     changeOrigin: true,
-    selfHandleResponse: true, // Esto nos permite modificar el código de YouTube
+    cookieDomainRewrite: "onrender.com", // Para que no se rompa el login
     onProxyRes: function (proxyRes, req, res) {
         let body = [];
         proxyRes.on('data', function (chunk) { body.push(chunk); });
         proxyRes.on('end', function () {
-            body = Buffer.concat(body).toString();
+            let html = Buffer.concat(body).toString();
             
-            // EL TRUCO: Inyectamos nuestro CSS y JS "Premium" antes de que cierre el </head>
-            const injectCode = `
-                <link rel="icon" href="https://www.youtube.com/s/desktop/c07166ca/img/favicon_32x32.png">
+            // INYECCIÓN DE ESTILO Y LOGO PREMIUM
+            const premiumStyle = `
                 <style>
-                    /* Ocultar anuncios */
-                    .ad-container, .ytp-ad-overlay-container, #player-ads { display: none !important; }
-                    /* Cambiar logo o estilos si querés */
+                    /* Zócalo Premium Superior */
+                    #premium-bar {
+                        position: fixed; top: 0; left: 0; width: 100%; height: 48px;
+                        background: #0f0f0f; display: flex; align-items: center;
+                        justify-content: center; z-index: 999999; border-bottom: 1px solid #333;
+                    }
+                    #premium-bar img { height: 20px; margin-right: 5px; }
+                    #premium-bar span { color: white; font-weight: bold; font-size: 18px; font-family: sans-serif; }
+                    
+                    /* Ajuste para que YouTube no quede debajo del zócalo */
+                    body { margin-top: 48px !important; }
+                    
+                    /* BLOQUEO DE PUBLICIDAD BÁSICO */
+                    .ad-container, .ytp-ad-overlay-container, ytm-promoted-video-renderer { display: none !important; }
                 </style>
-                <script>
-                    console.log("YouTube Premium activado");
-                    // Aquí pondremos el código de segundo plano después
-                </script>
+                <div id="premium-bar">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg">
+                    <span>YouTube Premium</span>
+                </div>
             `;
-            body = body.replace('</head>', injectCode + '</head>');
             
-            res.end(body);
+            // Metemos el código justo después de que empieza el body
+            html = html.replace('<body>', '<body>' + premiumStyle);
+            res.end(html);
         });
     }
 }));
 
 app.listen(PORT, () => {
-    console.log(`Servidor Premium corriendo en puerto ${PORT}`);
+    console.log("Servidor Premium Activo");
 });
