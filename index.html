@@ -2,14 +2,14 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Premium PRO</title>
     <link rel="manifest" href="manifest.json">
     <style>
         body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family: sans-serif; text-align:center; }
         .loader { border: 4px solid #333; border-top: 4px solid #f00; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin-top: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .btn { background: linear-gradient(135deg, #ff0000 0%, #b30000 100%); color: white; padding: 16px 35px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 17px; box-shadow: 0 10px 20px rgba(255,0,0,0.3); }
+        .btn { background: linear-gradient(135deg, #ff0000 0%, #b30000 100%); color: white; padding: 18px 40px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 18px; }
     </style>
 </head>
 <body>
@@ -17,62 +17,68 @@
     <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="90">
     <h1 style="font-size: 22px; margin-top: 15px;">YouTube Premium PRO</h1>
     <div id="loader" class="loader"></div>
-    <div id="install-container" style="display:none;">
-        <button id="install-btn" class="btn">INSTALAR AHORA</button>
+    <div id="install-area" style="display:none;">
+        <button id="btnInstalar" class="btn">INSTALAR AHORA</button>
     </div>
 
     <script>
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+        if ('serviceWorker' in navigator) { 
+            navigator.serviceWorker.register('sw.js'); 
+        }
 
+        let deferredPrompt;
+        const installArea = document.getElementById('install-area');
+        const loader = document.getElementById('loader');
+
+        // Capturamos el evento de instalación ANTES de que se pierda
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            loader.style.display = 'none';
+            installArea.style.display = 'block';
+        });
+
+        // El botón ahora tiene una función directa
+        document.getElementById('btnInstalar').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+            } else {
+                alert("Toca los 3 puntos del navegador y selecciona 'Instalar aplicación' o 'Agregar a inicio'.");
+            }
+        });
+
+        // Si ya es la App, redirige y activa el BLOQUEO DE LA EXTENSIÓN
         const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-
         if (isPWA) {
-            // HACK DE VISIBILIDAD PARA SEGUNDO PLANO
+            // HACK SEGUNDO PLANO
             Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
             Object.defineProperty(document, 'hidden', {get: () => false});
-            window.addEventListener('visibilitychange', e => e.stopImmediatePropagation(), true);
 
             window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
 
-            // LÓGICA DE LA EXTENSIÓN QUE PASASTE (Adaptada a Móvil)
-            const fastForwardAd = () => {
-                const video = document.querySelector('video');
-                const adShowing = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
-                
-                if (adShowing && video) {
-                    video.muted = true;
-                    // El truco maestro: saltar al final del anuncio
-                    if (isFinite(video.duration)) {
-                        video.currentTime = video.duration;
-                    }
-                    video.playbackRate = 16; 
-                    // Click en saltar
-                    const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-slot');
-                    if (skipBtn) skipBtn.click();
+            // Lógica de la extensión (currentTime = duration)
+            const killAds = () => {
+                const v = document.querySelector('video');
+                const ad = document.querySelector('.ad-showing, .ad-interrupting');
+                if (ad && v) {
+                    v.muted = true;
+                    if (isFinite(v.duration)) v.currentTime = v.duration;
+                    v.playbackRate = 16;
+                    document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
                 }
-
-                // Borrar banners de la interfaz (YPF, Mercado Libre, etc.)
-                const banners = document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container, ytm-promoted-sparkles-web-renderer, ytm-inline-ad-slot-renderer');
-                banners.forEach(b => b.remove());
+                document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container').forEach(el => el.remove());
             };
-
-            // Ejecución ultra rápida
-            setInterval(fastForwardAd, 200);
-            
-            // MutationObserver para máxima potencia
-            const observer = new MutationObserver(fastForwardAd);
-            observer.observe(document.documentElement, { childList: true, subtree: true });
-
+            setInterval(killAds, 200);
         } else {
-            let deferredPrompt;
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('install-container').style.display = 'block';
-            });
-            document.getElementById('install-btn').onclick = () => { if (deferredPrompt) deferredPrompt.prompt(); };
-            setTimeout(() => { document.getElementById('loader').style.display = 'none'; document.getElementById('install-container').style.display = 'block'; }, 2000);
+            // Si pasan 3 segundos y no salió el prompt, mostramos el botón por si las dudas
+            setTimeout(() => {
+                if (installArea.style.display === 'none') {
+                    loader.style.display = 'none';
+                    installArea.style.display = 'block';
+                }
+            }, 3000);
         }
     </script>
 </body>
