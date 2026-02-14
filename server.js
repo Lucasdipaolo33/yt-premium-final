@@ -3,69 +3,43 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Si entran a la raíz, les mostramos una interfaz de bienvenida limpia
-app.get('/', (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <style>
-                body { background: #0f0f0f; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-                .search-box { display: flex; width: 90%; max-width: 500px; }
-                input { flex: 1; padding: 12px; border: none; border-radius: 20px 0 0 20px; outline: none; }
-                button { padding: 12px 20px; border: none; background: #f00; color: white; border-radius: 0 20px 20px 0; cursor: pointer; font-weight: bold; }
-                .logo { display: flex; align-items: center; margin-bottom: 20px; }
-                .logo img { height: 40px; margin-right: 10px; }
-            </style>
-        </head>
-        <body>
-            <div class="logo">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg">
-                <h1>Premium</h1>
-            </div>
-            <form action="/search" method="get" class="search-box">
-                <input type="text" name="q" placeholder="Buscar en YouTube Premium..." required>
-                <button type="submit">BUSCAR</button>
-            </form>
-            <p style="margin-top:20px; color:#aaa; font-size:12px;">Facultad de Programación - Acceso Seguro</p>
-        </body>
-        </html>
-    `);
-});
-
-// Cuando buscan, los mandamos al modo "Embed" que no pide validación de Bot
-app.get('/search', (req, res) => {
-    const query = req.query.q;
-    res.redirect(\`/embed?listType=search&list=\${encodeURIComponent(query)}\`);
-});
-
 app.use('/', createProxyMiddleware({
-    target: 'https://www.youtube.com',
+    target: 'https://m.youtube.com',
     changeOrigin: true,
+    selfHandleResponse: true, 
     onProxyReq: (proxyReq) => {
-        proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (SmartTV; mStar; XBMC) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Safari/537.36');
+        // Simulamos un navegador móvil Android real para evitar el bloqueo de bot
+        proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36');
+        proxyReq.setHeader('Accept-Language', 'es-419,es;q=0.9');
     },
     onProxyRes: function (proxyRes, req, res) {
         let body = [];
-        proxyRes.on('data', function (chunk) { body.push(chunk); });
-        proxyRes.on('end', function () {
+        proxyRes.on('data', (chunk) => body.push(chunk));
+        proxyRes.on('end', () => {
             let html = Buffer.concat(body).toString();
-            const premiumOverlay = \`
+            
+            // EL "BLOQUEADOR DE EXTENSIÓN": Borramos scripts de anuncios por nombre
+            html = html.replace(/<script\s+src="[^"]*adsbygoogle[^"]*"><\/script>/gi, '');
+            html = html.replace(/<script\s+src="[^"]*doubleclick[^"]*"><\/script>/gi, '');
+
+            const scriptPremium = `
                 <style>
-                    #header-p { position: fixed; top: 0; width: 100%; height: 50px; background: #000; display: flex; align-items: center; justify-content: space-around; z-index: 999999; border-bottom: 1px solid #333; }
-                    #header-p a { color: white; text-decoration: none; font-weight: bold; background: #333; padding: 5px 15px; border-radius: 15px; font-size: 14px; }
-                    body { margin-top: 50px !important; }
+                    /* Ocultar banners de anuncios y sugerencias de app */
+                    .ad-container, .ytp-ad-overlay-container, ytm-promoted-video-renderer, .masthead-ad { display: none !important; }
+                    #premium-bar { position: fixed; top: 0; width: 100%; height: 48px; background: #000; z-index: 999999; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid red; }
                 </style>
-                <div id="header-p">
-                    <span style="color:white; font-weight:bold;">YouTube Premium</span>
-                    <a href="/">NUEVA BÚSQUEDA</a>
-                </div>
-            \`;
-            html = html.replace('<body>', '<body>' + premiumOverlay);
+                <div id="premium-bar"><span style="color:white; font-weight:bold; font-family:sans-serif;">YOUTUBE PREMIUM PRO</span></div>
+                <script>
+                    // TRUCO SEGUNDO PLANO: Engañamos al navegador para que no pause al ocultar la pestaña
+                    Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
+                    Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+                </script>
+            `;
+            
+            html = html.replace('<head>', '<head>' + scriptPremium);
             res.end(html);
         });
     }
 }));
 
-app.listen(PORT);
+app.listen(PORT, () => console.log("Inyección Premium Lista"));
