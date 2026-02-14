@@ -1,64 +1,86 @@
-<script>
-    let deferredPrompt;
-    const installArea = document.getElementById('install-area');
-    const loader = document.getElementById('loader');
-    const btnInstalar = document.getElementById('btnInstalar');
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Premium PRO</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family: sans-serif; text-align:center; }
+        .loader { border: 4px solid #333; border-top: 4px solid #f00; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin-top: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .btn { background: linear-gradient(135deg, #ff0000 0%, #b30000 100%); color: white; padding: 18px 40px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 18px; display: none; }
+    </style>
+</head>
+<body>
 
-    // 1. Registro del Service Worker (Obligatorio para que sea instalable)
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('SW registrado'))
-                .catch(err => console.log('Error SW', err));
-        });
-    }
-
-    // 2. Captura el evento de instalación (Sin esto el botón no hace nada)
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        // Solo mostramos el botón cuando el navegador confirma que SE PUEDE instalar
-        loader.style.display = 'none';
-        installArea.style.display = 'block';
-    });
-
-    // 3. Acción del botón - Ahora sí dispara el cartel de Chrome
-    btnInstalar.addEventListener('click', (e) => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('El usuario instaló la App');
-                }
-                deferredPrompt = null;
-            });
-        } else {
-            // Plan B si el navegador se pone terco
-            alert("Chrome todavía está cargando los permisos. Espera 2 segundos o usa el menú de los 3 puntos -> 'Instalar aplicación'.");
-        }
-    });
-
-    // 4. Lógica de la App ya instalada (Redirección + Bloqueo Extensión)
-    const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="90">
+    <h1 style="font-size: 22px; margin-top: 15px;">YouTube Premium PRO</h1>
     
-    if (isPWA) {
-        // Truco para que no pause en segundo plano
-        Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
-        Object.defineProperty(document, 'hidden', {get: () => false});
-        
-        window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
+    <div id="loader" class="loader"></div>
+    <button id="btnInstalar" class="btn">INSTALAR AHORA</button>
 
-        // El aniquilador de anuncios (Lógica de la extensión 16x y salto de tiempo)
-        setInterval(() => {
-            const v = document.querySelector('video');
-            if (v && document.querySelector('.ad-showing, .ad-interrupting')) {
-                v.muted = true;
-                if (isFinite(v.duration)) v.currentTime = v.duration; // Salto al final del anuncio
-                v.playbackRate = 16;
-                document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
+    <script>
+        // 1. Registro del Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
+        }
+
+        let deferredPrompt;
+        const btnInstalar = document.getElementById('btnInstalar');
+        const loader = document.getElementById('loader');
+
+        // 2. Captura de instalación
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            loader.style.display = 'none';
+            btnInstalar.style.display = 'block';
+        });
+
+        // 3. Click del botón
+        btnInstalar.addEventListener('click', () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((result) => {
+                    if (result.outcome === 'accepted') deferredPrompt = null;
+                });
+            } else {
+                alert("Toca los 3 puntos y 'Instalar Aplicación'");
             }
-            // Borra banners de la pantalla
-            document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container').forEach(el => el.remove());
-        }, 300);
-    }
-</script>
+        });
+
+        // 4. Modo App (Redirección + Bloqueo Pro)
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        
+        if (isPWA) {
+            // Anti-pausa segundo plano
+            Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
+            Object.defineProperty(document, 'hidden', {get: () => false});
+
+            window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
+
+            // EL BLOQUEADOR QUE ME PASASTE
+            setInterval(() => {
+                const v = document.querySelector('video');
+                const ad = document.querySelector('.ad-showing, .ad-interrupting');
+                if (ad && v) {
+                    v.muted = true;
+                    if (isFinite(v.duration)) v.currentTime = v.duration;
+                    v.playbackRate = 16;
+                    document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
+                }
+                document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container').forEach(el => el.remove());
+            }, 300);
+        } else {
+            // Backup por si el evento tarda
+            setTimeout(() => {
+                if (btnInstalar.style.display === 'none') {
+                    loader.style.display = 'none';
+                    btnInstalar.style.display = 'block';
+                }
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
