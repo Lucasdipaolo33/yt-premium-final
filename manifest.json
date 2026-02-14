@@ -2,7 +2,8 @@
   "name": "YouTube Premium PRO",
   "short_name": "Premium PRO",
   "start_url": "index.html",
-  "display": "standalone",
+  "display": "fullscreen",
+  "orientation": "portrait",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [{
