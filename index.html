@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>YouTube Premium PRO</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { margin:0; background:#000; font-family:sans-serif; color:white; overflow:hidden; }
+        #app-bar { height:48px; background:#0f0f0f; display:flex; align-items:center; padding:0 15px; border-bottom:1px solid #333; justify-content: space-between; }
+        #app-bar span { font-weight: bold; color: #f00; letter-spacing: 1px; }
+        iframe { width:100%; height:calc(100vh - 48px); border:none; }
+        #install-btn { display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#fff; color:#000; padding:12px 24px; border-radius:25px; font-weight:bold; z-index:999999; border:none; box-shadow: 0 4px 15px rgba(255,255,255,0.3); }
+    </style>
+</head>
+<body>
+    <div id="app-bar">
+        <div style="display:flex; align-items:center;">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" style="height:20px; margin-right:8px;">
+            <span>PREMIUM</span>
+        </div>
+        <div style="font-size:10px; color:#666;">MODO UNIVERSITARIO</div>
+    </div>
+    <button id="install-btn">INSTALAR APP PREMIUM</button>
+    <iframe src="https://m.youtube.com" id="yt-frame" allow="autoplay; encrypted-media"></iframe>
+
+    <script>
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+
+        // LIMPIADOR DE BANNERS Y PUBLICIDAD CADA 0.5 SEGUNDOS
+        setInterval(() => {
+            const frame = document.getElementById('yt-frame');
+            if (frame && frame.contentWindow) {
+                const style = document.createElement('style');
+                style.innerHTML = `
+                    ytm-promoted-video-renderer, ytm-display-ad-renderer, 
+                    ytm-companion-ad-renderer, .ad-container, 
+                    .ytp-ad-overlay-container, ytm-upsell-dialog-renderer,
+                    #masthead-ad, .mealbar-promo-renderer, ytm-ad-slot,
+                    .player-ads, #player-ads, .ytp-ad-module, 
+                    .ytp-ad-banner { display: none !important; }
+                `;
+                try { frame.contentWindow.document.head.appendChild(style); } catch(e) {}
+            }
+        }, 500);
+
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); deferredPrompt = e;
+            document.getElementById('install-btn').style.display = 'block';
+        });
+        document.getElementById('install-btn').addEventListener('click', () => {
+            deferredPrompt.prompt(); document.getElementById('install-btn').style.display = 'none';
+        });
+    </script>
+</body>
+</html>
