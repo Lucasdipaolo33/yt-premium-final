@@ -3,42 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
     <title>YouTube Premium</title>
+    <link rel="icon" type="image/png" href="https://www.youtube.com/s/desktop/c07166ca/img/favicon_32x32.png">
+
+    <meta property="og:title" content="YouTube Premium">
+    <meta property="og:description" content="Disfruta de YouTube sin anuncios y en segundo plano.">
+    <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg">
+    <meta property="og:url" content="https://youtubepremium-tdm8.onrender.com">
+
     <style>
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; background-color: #0f0f0f; overflow: hidden; font-family: 'Roboto', sans-serif; }
         
+        /* Zócalo superior corregido */
         #header-premium {
             position: fixed; top: 0; width: 100%; height: 48px; background: #0f0f0f;
-            display: flex; align-items: center; padding-left: 16px; z-index: 9999;
+            display: flex; align-items: center; justify-content: center; z-index: 9999;
             border-bottom: 1px solid #222;
         }
 
-        /* Logo Premium con filtro blanco para que se vea en modo oscuro */
-        .logo-yt { height: 20px; filter: brightness(0) invert(1); } 
-        .text-premium { color: white; margin-left: 4px; font-weight: bold; font-size: 19px; letter-spacing: -1px; }
+        .logo-container { display: flex; align-items: center; }
+        .logo-img { height: 20px; margin-right: 5px; }
+        .logo-text { color: white; font-weight: bold; font-size: 20px; letter-spacing: -1px; }
 
+        /* Contenedor del video */
         #yt-wrapper { width: 100%; height: calc(100% - 48px); margin-top: 48px; }
-        iframe { width: 100%; height: 100%; border: none; }
+        
+        /* Ajuste para que el iframe intente cargar mejor */
+        iframe { width: 100%; height: 100%; border: none; color-scheme: dark; }
     </style>
 </head>
 <body>
 
     <div id="header-premium">
-        <img class="logo-yt" src="https://upload.wikimedia.org/wikipedia/commons/b/b8/YouTube_Logo_2017.svg" alt="YT">
-        <span class="text-premium">Premium</span>
+        <div class="logo-container">
+            <img class="logo-img" src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" alt="Logo">
+            <span class="logo-text">YouTube Premium</span>
+        </div>
     </div>
 
     <div id="yt-wrapper">
-        <iframe id="player" src="https://m.youtube.com/?itct=CBkQpDAiEwjXv_v" 
+        <iframe id="player" src="https://www.youtube.com/embed?listType=search&list=musica+premium" 
                 allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
     </div>
 
     <script>
-        // Configuración para segundo plano
+        // Truco para segundo plano
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: 'YouTube Premium',
-                artist: 'Facultad de Programación'
+                artwork: [{ src: 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg', sizes: '512x512', type: 'image/png' }]
             });
         }
     </script>
