@@ -6,21 +6,19 @@
     <title>YouTube Premium PRO</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-align:center; }
+        body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family: sans-serif; text-align:center; }
         .loader { border: 4px solid #333; border-top: 4px solid #f00; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin-top: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .btn { background: linear-gradient(135deg, #ff0000 0%, #b30000 100%); color: white; padding: 16px 35px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 17px; box-shadow: 0 10px 20px rgba(255,0,0,0.3); transition: transform 0.2s; }
-        .btn:active { transform: scale(0.95); }
+        .btn { background: linear-gradient(135deg, #ff0000 0%, #b30000 100%); color: white; padding: 16px 35px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 17px; box-shadow: 0 10px 20px rgba(255,0,0,0.3); }
     </style>
 </head>
 <body>
 
     <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="90">
-    <h1 style="font-size: 24px; margin-top: 15px;">YouTube Premium</h1>
-    <p id="status" style="opacity: 0.8;">Iniciando escudo de protección...</p>
+    <h1 style="font-size: 22px; margin-top: 15px;">YouTube Premium PRO</h1>
     <div id="loader" class="loader"></div>
     <div id="install-container" style="display:none;">
-        <button id="install-btn" class="btn">INSTALAR APP PREMIUM</button>
+        <button id="install-btn" class="btn">INSTALAR AHORA</button>
     </div>
 
     <script>
@@ -29,47 +27,53 @@
         const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
         if (isPWA) {
-            // HACK SEGUNDO PLANO Y REDIRECCIÓN
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({ title: 'YouTube Premium PRO', artist: 'Escudo Activo' });
-            }
+            // HACK DE VISIBILIDAD PARA SEGUNDO PLANO
+            Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
+            Object.defineProperty(document, 'hidden', {get: () => false});
+            window.addEventListener('visibilitychange', e => e.stopImmediatePropagation(), true);
+
             window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
+
+            // LÓGICA DE LA EXTENSIÓN QUE PASASTE (Adaptada a Móvil)
+            const fastForwardAd = () => {
+                const video = document.querySelector('video');
+                const adShowing = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
+                
+                if (adShowing && video) {
+                    video.muted = true;
+                    // El truco maestro: saltar al final del anuncio
+                    if (isFinite(video.duration)) {
+                        video.currentTime = video.duration;
+                    }
+                    video.playbackRate = 16; 
+                    // Click en saltar
+                    const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-slot');
+                    if (skipBtn) skipBtn.click();
+                }
+
+                // Borrar banners de la interfaz (YPF, Mercado Libre, etc.)
+                const banners = document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container, ytm-promoted-sparkles-web-renderer, ytm-inline-ad-slot-renderer');
+                banners.forEach(b => b.remove());
+            };
+
+            // Ejecución ultra rápida
+            setInterval(fastForwardAd, 200);
+            
+            // MutationObserver para máxima potencia
+            const observer = new MutationObserver(fastForwardAd);
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+
         } else {
             let deferredPrompt;
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredPrompt = e;
                 document.getElementById('loader').style.display = 'none';
-                document.getElementById('status').innerText = "Listo para activar el bloqueo total.";
                 document.getElementById('install-container').style.display = 'block';
             });
-
-            document.getElementById('install-btn').onclick = () => {
-                if (deferredPrompt) deferredPrompt.prompt();
-            };
-            
-            // Si el navegador no lanza el prompt, mostramos el botón tras 2 seg
-            setTimeout(() => {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('install-container').style.display = 'block';
-            }, 2500);
+            document.getElementById('install-btn').onclick = () => { if (deferredPrompt) deferredPrompt.prompt(); };
+            setTimeout(() => { document.getElementById('loader').style.display = 'none'; document.getElementById('install-container').style.display = 'block'; }, 2000);
         }
-
-        // MOTOR DE BLOQUEO AGRESIVO (ESTILO UBLOCK ORIGIN)
-        setInterval(() => {
-            // 1. Eliminación por selectores (Banners de Mercado Libre, YPF, etc)
-            const badElements = document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container, .ytp-ad-module, ytm-promoted-sparkles-web-renderer, ytm-inline-ad-slot-renderer, .ytp-ad-overlay-container');
-            badElements.forEach(el => el.remove());
-
-            // 2. Aceleración de Video Publicitario (Lógica 16x)
-            const video = document.querySelector('video');
-            const isAd = document.querySelector('.ad-showing, .ad-interrupting');
-            if (isAd && video) {
-                video.muted = true;
-                video.playbackRate = 16;
-                document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
-            }
-        }, 200);
     </script>
 </body>
 </html>
