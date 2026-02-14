@@ -2,80 +2,86 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>YouTube Premium PRO</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family:sans-serif; text-align:center; }
-        .loader { border: 4px solid #333; border-top: 4px solid #f00; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-top: 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .btn { background: #f00; color: white; padding: 15px 30px; border-radius: 30px; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; display:inline-block; font-size: 16px; }
+        body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family:sans-serif; }
+        .btn { background: #f00; color: #fff; border: none; padding: 18px 40px; border-radius: 50px; font-weight: bold; font-size: 18px; cursor: pointer; box-shadow: 0 5px 20px rgba(255,0,0,0.4); }
+        .loading { text-align: center; }
     </style>
 </head>
 <body>
-
-    <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="80">
-    <h2>YouTube Premium</h2>
-    <p id="status-text">Cargando sistema de bloqueo...</p>
-    <div id="loader" class="loader"></div>
-    
-    <div id="install-area" style="display:none;">
-        <button id="btnInstalar" class="btn">INSTALAR APP PREMIUM</button>
+    <div id="ui">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="100">
+        <div id="loader" style="margin-top:20px;">
+            <p>Activando Protocolos de Bloqueo...</p>
+        </div>
+        <div id="install-btn-container" style="display:none;">
+            <button id="install-btn" class="btn">INSTALAR PREMIUM PRO</button>
+        </div>
     </div>
 
     <script>
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 
-        let deferredPrompt;
-        const statusText = document.getElementById('status-text');
-        const loader = document.getElementById('loader');
-        const installArea = document.getElementById('install-area');
-        const btnInstalar = document.getElementById('btnInstalar');
-
-        // Detectar si ya es la App instalada
-        const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || window.navigator.standalone;
 
         if (isPWA) {
-            statusText.innerText = "Modo Premium Activo";
-            // Redirección inmediata si ya es la app
-            window.location.href = "https://m.youtube.com/?persist_gl=1&gl=AR";
-        }
+            // HACK DE AUDIO EN SEGUNDO PLANO (NIVEL PRO)
+            const audioHack = document.createElement('audio');
+            audioHack.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='; // Audio silencioso infinito
+            audioHack.loop = true;
 
-        // Capturar el evento de instalación
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            // Mostrar el botón si no está instalada
-            loader.style.display = 'none';
-            statusText.innerText = "Listo para instalar";
-            installArea.style.display = 'block';
-        });
-
-        btnInstalar.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    console.log('Usuario aceptó');
+            document.addEventListener('touchstart', () => {
+                audioHack.play(); // Se activa con el primer toque del usuario
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({ title: 'YouTube Premium PRO', artist: 'Background Enabled' });
+                    navigator.mediaSession.playbackState = 'playing';
                 }
-                deferredPrompt = null;
-            } else {
-                alert("Toca los 3 puntos (o compartir) y selecciona 'Agregar a la pantalla de inicio'");
-            }
-        });
+            }, { once: true });
 
-        // Bloqueador en segundo plano (Corre siempre)
-        setInterval(() => {
-            const ads = document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container, .ytp-ad-module');
-            ads.forEach(ad => ad.remove());
-            
-            const video = document.querySelector('video');
-            if (document.querySelector('.ad-showing, .ad-interrupting') && video) {
-                video.muted = true;
-                video.playbackRate = 16;
-                document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
-            }
-        }, 300);
+            // REDIRECCIÓN A VERSIÓN MÓVIL LIMPIA
+            window.location.href = "https://m.youtube.com/?persist_gl=1&gl=AR";
+
+            // INYECCIÓN DE BLOQUEADOR AGRESIVO (ESTILO UBLOCK)
+            const killAds = () => {
+                const selectors = [
+                    'ytm-promoted-video-renderer', 'ytm-display-ad-renderer', 'ytm-companion-ad-renderer', 
+                    'ytm-ad-slot', '.ad-container', '.ytp-ad-module', '.ytp-ad-overlay-container',
+                    'ytm-promoted-sparkles-web-renderer', 'ytm-inline-ad-slot-renderer', '#masthead-ad'
+                ];
+                selectors.forEach(s => document.querySelectorAll(s).forEach(el => el.remove()));
+                
+                const video = document.querySelector('video');
+                if (document.querySelector('.ad-showing, .ad-interrupting')) {
+                    if (video) {
+                        video.muted = true;
+                        video.playbackRate = 16;
+                        const skip = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+                        if (skip) skip.click();
+                    }
+                }
+            };
+
+            // MutationObserver: Detecta cambios en el HTML al instante (Sin lag)
+            const observer = new MutationObserver(killAds);
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+            setInterval(killAds, 500);
+
+        } else {
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('install-btn-container').style.display = 'block';
+            });
+
+            document.getElementById('install-btn').addEventListener('click', () => {
+                if (deferredPrompt) deferredPrompt.prompt();
+            });
+        }
     </script>
 </body>
 </html>
