@@ -1,15 +1,15 @@
 const BLACKLIST = [
     'ad_type', 'adunit', 'adsense', 'doubleclick', 'googleads', 'pagead', 
     'ptracking', 'log_event', 'ad_status', 'player_ads', 'api/stats/ads',
-    'stats/ads', 'v1/attributions', 'pagead/conversion', 'ad_break'
+    'stats/ads', 'v1/attributions', 'pagead/conversion', 'ad_break', 'mads'
 ];
 
 self.addEventListener('fetch', (event) => {
-    const url = event.request.url;
+    const url = event.request.url.toLowerCase();
     
-    // Si la URL tiene CUALQUIERA de las palabras prohibidas, se bloquea.
-    if (BLACKLIST.some(word => url.toLowerCase().includes(word))) {
-        event.respondWith(new Response('', { status: 200 })); 
+    // Si es publicidad, devolvemos un "Éxito Vacío" (Estrategia Undetectable)
+    if (BLACKLIST.some(word => url.includes(word))) {
+        event.respondWith(new Response('', { status: 200, headers: {'Content-Type': 'text/plain'} }));
         return;
     }
 });
