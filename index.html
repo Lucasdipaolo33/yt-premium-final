@@ -8,8 +8,6 @@
 
     <style>
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; background-color: #0f0f0f; overflow: hidden; }
-        
-        /* Cabecera Premium */
         #header-premium {
             position: fixed; top: 0; width: 100%; height: 48px; background: #0f0f0f;
             display: flex; align-items: center; justify-content: center; z-index: 9999;
@@ -19,11 +17,14 @@
         .logo-img { height: 20px; margin-right: 6px; }
         .logo-text { color: white; font-weight: bold; font-size: 20px; font-family: sans-serif; }
 
-        /* Contenedor de YouTube */
         #main-container { width: 100%; height: calc(100% - 48px); margin-top: 48px; }
         
-        /* El Iframe con el truco del Proxy */
-        iframe { width: 100%; height: 100%; border: none; }
+        /* El secreto: Sandbox permite que el iframe ignore algunas restricciones */
+        iframe { 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+        }
     </style>
 </head>
 <body>
@@ -36,18 +37,36 @@
     </div>
 
     <div id="main-container">
-        <iframe id="yt-frame" src="https://m.youtube.com/?app=m&persist_app=1&itct=CBkQpDAiEwjXv_v"></iframe>
+        <iframe 
+            id="yt-frame" 
+            src="https://m.youtube.com/?persist_app=1&app=m" 
+            allow="autoplay; encrypted-media; picture-in-picture"
+            sandbox="allow-forms allow-scripts allow-same-origin allow-presentation allow-popups">
+        </iframe>
     </div>
 
     <script>
-        // TRUCO PARA EL PROFESOR: Si el iframe se bloquea, lo redirigimos a un Proxy
-        const frame = document.getElementById('yt-frame');
-        
-        // Configuración de controles de audio (Pantalla bloqueada)
+        // Bloqueo de publicidad rudimentario (solo si el navegador lo permite)
+        setInterval(() => {
+            const frame = document.getElementById('yt-frame');
+            try {
+                // Buscamos botones de "Saltar anuncio" dentro del frame
+                const skipBtn = frame.contentWindow.document.querySelector('.ytp-ad-skip-button');
+                if (skipBtn) skipBtn.click();
+                
+                // Ocultamos banners
+                const adOverlay = frame.contentWindow.document.querySelector('.ytp-ad-overlay-container');
+                if (adOverlay) adOverlay.style.display = 'none';
+            } catch (e) {
+                // Si sale error de CORS, confirmamos que necesitamos el Proxy
+            }
+        }, 1000);
+
+        // Segundo plano (Media Session)
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: 'YouTube Premium',
-                artist: 'Lucas - Final Programación',
+                artist: 'Lucas Final',
                 artwork: [{ src: 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg', sizes: '512x512', type: 'image/png' }]
             });
         }
