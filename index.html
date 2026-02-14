@@ -3,73 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YT Premium PRO</title>
+    <title>YouTube Premium</title>
     <link rel="manifest" href="manifest.json">
     <style>
         body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family: sans-serif; }
-        .btn { background: #f00; color: #fff; padding: 18px 40px; border-radius: 50px; border: none; font-weight: bold; font-size: 18px; cursor: pointer; margin-top: 20px; display: block; }
-        .loader { border: 4px solid #333; border-top: 4px solid #f00; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .btn { background: #f00; color: #fff; padding: 20px 45px; border-radius: 50px; border: none; font-weight: bold; font-size: 20px; cursor: pointer; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <div id="loader" class="loader"></div>
-    <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="80">
-    <h2>YouTube Premium</h2>
-    <button id="btnInstalar" class="btn" style="display:none;">INSTALAR AHORA</button>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="90">
+    <h2>Premium PRO</h2>
+    <button id="btnInstalar" class="btn">INSTALAR AHORA</button>
 
     <script>
-        // Registro simple del Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js');
         }
 
         let deferredPrompt;
-        const btn = document.getElementById('btnInstalar');
-        const ld = document.getElementById('loader');
 
+        // ESTO ES LO QUE HACE QUE SE INSTALE AL TOCAR EL BOTÓN
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            ld.style.display = 'none';
-            btn.style.display = 'block';
+            console.log("Instalación lista");
         });
 
-        btn.onclick = () => {
+        document.getElementById('btnInstalar').onclick = () => {
             if (deferredPrompt) {
-                deferredPrompt.prompt();
-            } else {
-                alert("Usa el menú del navegador (3 puntos) e 'Instalar'");
+                deferredPrompt.prompt(); // DISPARA EL CARTEL DE INSTALAR DE UNA
+                deferredPrompt.userChoice.then((choice) => {
+                    if (choice.outcome === 'accepted') deferredPrompt = null;
+                });
             }
         };
 
-        // Si ya es la App, activar BLOQUEO TOTAL
+        // SI YA ES LA APP (MODO PREMIUM ACTIVO)
         if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
-            // Anti-pausa segundo plano
+            // Engañamos al sistema para que no pause el audio al minimizar
             Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
             Object.defineProperty(document, 'hidden', {get: () => false});
 
             window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
 
-            // EL MOTOR DE LA EXTENSIÓN (Pura potencia)
+            // EL BLOQUEADOR QUE ME PASASTE (16x y Salto de tiempo)
             setInterval(() => {
-                const v = document.querySelector('video');
+                const video = document.querySelector('video');
                 const ad = document.querySelector('.ad-showing, .ad-interrupting');
-                if (ad && v) {
-                    v.muted = true;
-                    if (isFinite(v.duration)) v.currentTime = v.duration;
-                    v.playbackRate = 16;
+                if (ad && video) {
+                    video.muted = true;
+                    if (isFinite(video.duration)) video.currentTime = video.duration;
+                    video.playbackRate = 16;
                     document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
                 }
-                // Limpieza de banners
                 document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container').forEach(el => el.remove());
             }, 300);
-        } else {
-            // Si el evento tarda, mostramos el botón igual a los 3 segundos
-            setTimeout(() => {
-                ld.style.display = 'none';
-                btn.style.display = 'block';
-            }, 3000);
         }
     </script>
 </body>
