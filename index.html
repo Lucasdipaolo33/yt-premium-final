@@ -3,57 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
     <title>YouTube Premium</title>
-    <link rel="icon" type="image/png" href="https://www.youtube.com/s/desktop/c07166ca/img/favicon_32x32.png">
-
-    <meta property="og:title" content="YouTube Premium">
-    <meta property="og:description" content="Disfruta de YouTube sin anuncios y en segundo plano.">
-    <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg">
-    <meta property="og:url" content="https://youtubepremium-tdm8.onrender.com">
-
+    <link rel="icon" href="https://www.youtube.com/s/desktop/c07166ca/img/favicon_32x32.png">
+    
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background-color: #0f0f0f; overflow: hidden; font-family: 'Roboto', sans-serif; }
-        
-        /* Zócalo superior corregido */
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background-color: #0f0f0f; overflow: hidden; font-family: sans-serif; }
         #header-premium {
             position: fixed; top: 0; width: 100%; height: 48px; background: #0f0f0f;
             display: flex; align-items: center; justify-content: center; z-index: 9999;
             border-bottom: 1px solid #222;
         }
+        .logo-yt { height: 20px; margin-right: 6px; }
+        .text-premium { color: white; font-weight: bold; font-size: 20px; letter-spacing: -1px; }
 
-        .logo-container { display: flex; align-items: center; }
-        .logo-img { height: 20px; margin-right: 5px; }
-        .logo-text { color: white; font-weight: bold; font-size: 20px; letter-spacing: -1px; }
-
-        /* Contenedor del video */
-        #yt-wrapper { width: 100%; height: calc(100% - 48px); margin-top: 48px; }
-        
-        /* Ajuste para que el iframe intente cargar mejor */
-        iframe { width: 100%; height: 100%; border: none; color-scheme: dark; }
+        /* Contenedor del reproductor */
+        #player-container { width: 100%; height: calc(100% - 48px); margin-top: 48px; background: #000; }
+        #player { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
     <div id="header-premium">
-        <div class="logo-container">
-            <img class="logo-img" src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" alt="Logo">
-            <span class="logo-text">YouTube Premium</span>
-        </div>
+        <img class="logo-yt" src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg">
+        <span class="text-premium">YouTube Premium</span>
     </div>
 
-    <div id="yt-wrapper">
-        <iframe id="player" src="https://www.youtube.com/embed?listType=search&list=musica+premium" 
-                allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+    <div id="player-container">
+        <div id="player"></div>
     </div>
 
     <script>
-        // Truco para segundo plano
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: 'YouTube Premium',
-                artwork: [{ src: 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg', sizes: '512x512', type: 'image/png' }]
+        // CARGA DE LA API OFICIAL DE YOUTUBE
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        var player;
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '100%',
+                width: '100%',
+                videoId: 'dQw4w9WgXcQ', // Video de prueba, el usuario puede buscar después
+                playerVars: {
+                    'autoplay': 1,
+                    'controls': 1,
+                    'modestbranding': 1,
+                    'rel': 0,
+                    'showinfo': 0,
+                    'origin': window.location.origin
+                }
             });
+        }
+
+        // TRUCO SEGUNDO PLANO
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({ title: 'YouTube Premium' });
         }
     </script>
 </body>
