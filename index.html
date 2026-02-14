@@ -1,62 +1,64 @@
 <script>
-    // Registro del Service Worker
-    if ('serviceWorker' in navigator) { 
-        navigator.serviceWorker.register('sw.js'); 
-    }
-
     let deferredPrompt;
     const installArea = document.getElementById('install-area');
     const loader = document.getElementById('loader');
     const btnInstalar = document.getElementById('btnInstalar');
 
-    // ESTO ES LO QUE ARREGLA EL BOTÓN: Captura el evento globalmente
+    // 1. Registro del Service Worker (Obligatorio para que sea instalable)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('SW registrado'))
+                .catch(err => console.log('Error SW', err));
+        });
+    }
+
+    // 2. Captura el evento de instalación (Sin esto el botón no hace nada)
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
-        deferredPrompt = e; // Guardamos el evento para usarlo después
+        deferredPrompt = e;
+        // Solo mostramos el botón cuando el navegador confirma que SE PUEDE instalar
         loader.style.display = 'none';
         installArea.style.display = 'block';
-        console.log("Evento de instalación capturado");
     });
 
-    // Acción del botón
-    btnInstalar.addEventListener('click', async () => {
+    // 3. Acción del botón - Ahora sí dispara el cartel de Chrome
+    btnInstalar.addEventListener('click', (e) => {
         if (deferredPrompt) {
-            deferredPrompt.prompt(); // Muestra el cartel oficial de instalación
-            const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('El usuario instaló la App');
+                }
                 deferredPrompt = null;
-                location.reload();
-            }
+            });
         } else {
-            // Si el navegador se pone terco, intentamos forzarlo así:
-            alert("El navegador está verificando la seguridad. Si no aparece el cartel, usa: 'Instalar' en el menú de los 3 puntos.");
+            // Plan B si el navegador se pone terco
+            alert("Chrome todavía está cargando los permisos. Espera 2 segundos o usa el menú de los 3 puntos -> 'Instalar aplicación'.");
         }
     });
 
-    // Si ya está instalado, redirigir a YouTube
+    // 4. Lógica de la App ya instalada (Redirección + Bloqueo Extensión)
     const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    
     if (isPWA) {
-        // Trucos de segundo plano y bloqueo
+        // Truco para que no pause en segundo plano
         Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
         Object.defineProperty(document, 'hidden', {get: () => false});
-        window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
         
-        // Motor de bloqueo (Lógica de la extensión que pasaste)
+        window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
+
+        // El aniquilador de anuncios (Lógica de la extensión 16x y salto de tiempo)
         setInterval(() => {
             const v = document.querySelector('video');
-            if (document.querySelector('.ad-showing, .ad-interrupting') && v) {
+            if (v && document.querySelector('.ad-showing, .ad-interrupting')) {
                 v.muted = true;
-                if (isFinite(v.duration)) v.currentTime = v.duration;
+                if (isFinite(v.duration)) v.currentTime = v.duration; // Salto al final del anuncio
                 v.playbackRate = 16;
                 document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
             }
+            // Borra banners de la pantalla
             document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container').forEach(el => el.remove());
-        }, 250);
-    } else {
-        // Respaldo visual: si a los 2 segundos no se capturó el evento, mostramos el botón igual
-        setTimeout(() => {
-            loader.style.display = 'none';
-            installArea.style.display = 'block';
-        }, 2000);
+        }, 300);
     }
 </script>
