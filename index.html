@@ -3,64 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Premium PRO</title>
+    <title>YT Premium PRO</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family: sans-serif; text-align:center; }
-        .loader { border: 4px solid #333; border-top: 4px solid #f00; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin-top: 20px; }
+        body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family: sans-serif; }
+        .btn { background: #f00; color: #fff; padding: 18px 40px; border-radius: 50px; border: none; font-weight: bold; font-size: 18px; cursor: pointer; margin-top: 20px; display: block; }
+        .loader { border: 4px solid #333; border-top: 4px solid #f00; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .btn { background: linear-gradient(135deg, #ff0000 0%, #b30000 100%); color: white; padding: 18px 40px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 18px; display: none; }
     </style>
 </head>
 <body>
-
-    <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="90">
-    <h1 style="font-size: 22px; margin-top: 15px;">YouTube Premium PRO</h1>
-    
     <div id="loader" class="loader"></div>
-    <button id="btnInstalar" class="btn">INSTALAR AHORA</button>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="80">
+    <h2>YouTube Premium</h2>
+    <button id="btnInstalar" class="btn" style="display:none;">INSTALAR AHORA</button>
 
     <script>
-        // 1. Registro del Service Worker
+        // Registro simple del Service Worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
+            navigator.serviceWorker.register('sw.js');
         }
 
         let deferredPrompt;
-        const btnInstalar = document.getElementById('btnInstalar');
-        const loader = document.getElementById('loader');
+        const btn = document.getElementById('btnInstalar');
+        const ld = document.getElementById('loader');
 
-        // 2. Captura de instalación
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            loader.style.display = 'none';
-            btnInstalar.style.display = 'block';
+            ld.style.display = 'none';
+            btn.style.display = 'block';
         });
 
-        // 3. Click del botón
-        btnInstalar.addEventListener('click', () => {
+        btn.onclick = () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((result) => {
-                    if (result.outcome === 'accepted') deferredPrompt = null;
-                });
             } else {
-                alert("Toca los 3 puntos y 'Instalar Aplicación'");
+                alert("Usa el menú del navegador (3 puntos) e 'Instalar'");
             }
-        });
+        };
 
-        // 4. Modo App (Redirección + Bloqueo Pro)
-        const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-        
-        if (isPWA) {
+        // Si ya es la App, activar BLOQUEO TOTAL
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
             // Anti-pausa segundo plano
             Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
             Object.defineProperty(document, 'hidden', {get: () => false});
 
             window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
 
-            // EL BLOQUEADOR QUE ME PASASTE
+            // EL MOTOR DE LA EXTENSIÓN (Pura potencia)
             setInterval(() => {
                 const v = document.querySelector('video');
                 const ad = document.querySelector('.ad-showing, .ad-interrupting');
@@ -70,16 +61,15 @@
                     v.playbackRate = 16;
                     document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
                 }
+                // Limpieza de banners
                 document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-ad-slot, .ad-container').forEach(el => el.remove());
             }, 300);
         } else {
-            // Backup por si el evento tarda
+            // Si el evento tarda, mostramos el botón igual a los 3 segundos
             setTimeout(() => {
-                if (btnInstalar.style.display === 'none') {
-                    loader.style.display = 'none';
-                    btnInstalar.style.display = 'block';
-                }
-            }, 4000);
+                ld.style.display = 'none';
+                btn.style.display = 'block';
+            }, 3000);
         }
     </script>
 </body>
