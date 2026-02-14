@@ -1,13 +1,14 @@
 {
   "name": "YouTube Premium PRO",
-  "short_name": "Premium PRO",
+  "short_name": "YT PRO",
   "start_url": "index.html",
-  "display": "fullscreen",
+  "display": "minimal-ui",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [{
       "src": "https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
   }]
 }
