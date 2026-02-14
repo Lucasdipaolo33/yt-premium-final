@@ -1,15 +1,14 @@
 const BLACKLIST = [
-    'ad_type', 'adunit', 'adsense', 'doubleclick', 'googleads', 'pagead', 
-    'ptracking', 'log_event', 'ad_status', 'player_ads', 'api/stats/ads',
-    'stats/ads', 'v1/attributions', 'pagead/conversion', 'ad_break', 'mads'
+    'googleads', 'adsense', 'doubleclick', 'ad_status', 'pagead', 'ptracking',
+    'api/stats/ads', 'log_event', 'ad_type', 'adunit', 'ad_break', 'mads'
 ];
 
 self.addEventListener('fetch', (event) => {
     const url = event.request.url.toLowerCase();
     
-    // Si es publicidad, devolvemos un "Éxito Vacío" (Estrategia Undetectable)
-    if (BLACKLIST.some(word => url.includes(word))) {
-        event.respondWith(new Response('', { status: 200, headers: {'Content-Type': 'text/plain'} }));
+    // Si la URL es de publicidad, la matamos respondiendo un "Ok" vacío
+    if (BLACKLIST.some(pattern => url.includes(pattern))) {
+        event.respondWith(new Response('', { status: 200 }));
         return;
     }
 });
