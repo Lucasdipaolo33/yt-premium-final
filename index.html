@@ -3,28 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Premium</title>
+    <title>YouTube Premium PRO</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        body { margin:0; background:#000; font-family:sans-serif; color:white; display:flex; align-items:center; justify-content:center; height:100vh; }
+        body { margin:0; background:#000; font-family:sans-serif; color:white; display:flex; align-items:center; justify-content:center; height:100vh; overflow:hidden; }
+        #install-screen { text-align: center; display: none; }
+        .btn { background: #f00; color: white; padding: 15px 30px; border-radius: 25px; border: none; font-weight: bold; margin-top: 20px; font-size: 16px; }
         .loader { border: 4px solid #333; border-top: 4px solid #f00; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #install-screen { text-align: center; display: none; padding: 20px; }
-        .btn { background: #f00; color: white; padding: 15px 30px; border-radius: 25px; border: none; font-weight: bold; margin-top: 20px; font-size: 16px; }
     </style>
 </head>
 <body>
 
     <div id="install-screen">
         <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" style="width:60px;">
-        <h2>YouTube Premium</h2>
-        <p>Instala la aplicación para activar el bloqueo de anuncios.</p>
+        <h2>YT Premium Pro</h2>
+        <p>Activa Bloqueo Invisible e Indetectable.</p>
         <button id="install-btn" class="btn">INSTALAR AHORA</button>
     </div>
 
-    <div id="loading-screen">
-        <div class="loader"></div>
-    </div>
+    <div id="loading-screen"><div class="loader"></div></div>
 
     <script>
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
@@ -32,28 +30,39 @@
         const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
         if (isPWA) {
-            // SI YA ES LA APP: Va directo a YouTube sin preguntar nada
+            // Lógica para SEGUNDO PLANO (Inspirado en Windowed):
+            // Engañamos a la visibilidad de la página
+            Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
+            Object.defineProperty(document, 'hidden', {get: () => false});
+
+            // Redirigimos a YouTube con parámetros de persistencia
             window.location.href = "https://m.youtube.com/?persist_gl=1&gl=AR";
+
+            // Limpiador Cosmético Agresivo (Como AdBlock/uBlock)
+            setInterval(() => {
+                const ads = document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-renderer, ytm-companion-ad-renderer, ytm-ad-slot, .ad-container, .ytp-ad-module, ytm-promoted-sparkles-web-renderer');
+                ads.forEach(ad => ad.remove());
+                
+                // Si aparece el botón de "Saltar anuncio" lo presiona solo (Lógica Infinito)
+                const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+                if (skipBtn) skipBtn.click();
+            }, 400);
         } else {
-            // SI ES EL NAVEGADOR: Muestra el botón de instalar
             document.getElementById('loading-screen').style.display = 'none';
             document.getElementById('install-screen').style.display = 'block';
         }
 
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
+            e.preventDefault(); deferredPrompt = e;
         });
 
         document.getElementById('install-btn').addEventListener('click', () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then(() => {
-                    location.reload();
-                });
+                deferredPrompt.userChoice.then(() => location.reload());
             } else {
-                alert("Para instalar: Toca el icono de compartir o los 3 puntos y elige 'Agregar a inicio'");
+                alert("Toca 'Compartir' y luego 'Agregar a inicio'");
             }
         });
     </script>
