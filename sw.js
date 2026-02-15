@@ -1,10 +1,4 @@
-const CACHE_NAME = 'yt-premium-final-v6';
-
-// 1. Lista de servidores que activan los anuncios (si los bloqueamos, el reproductor queda limpio)
-const ADS_CORE = [
-    'ads', 'doubleclick', 'googleads', 'pagead', 'stats/ads', 
-    'ptracking', 'adunit', 'log_event', 'vpaid', 'masthead'
-];
+const CACHE_NAME = 'yt-albania-v7';
 
 self.addEventListener('install', (e) => self.skipWaiting());
 self.addEventListener('activate', (e) => {
@@ -13,33 +7,57 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    const url = event.request.url.toLowerCase();
+    let url = new URL(event.request.url);
 
-    // FILTRO QUIRÚRGICO: Si la dirección tiene CUALQUIER palabra de la lista negra, la matamos
-    if (ADS_CORE.some(word => url.includes(word))) {
+    // 1. EL TRUCO DE ALBANIA (Inyección de Región)
+    if (url.hostname.includes('youtube.com')) {
+        let modified = false;
+        if (!url.searchParams.has('gl')) {
+            url.searchParams.set('gl', 'AL');
+            url.searchParams.set('persist_gl', '1');
+            modified = true;
+        }
+
+        if (modified) {
+            event.respondWith(
+                fetch(new Request(url.toString(), event.request)).catch(() => fetch(event.request))
+            );
+            return;
+        }
+    }
+
+    // 2. BLOQUEO DE RED (Seguimos matando los servidores de anuncios conocidos)
+    const ADS = ['googleads', 'doubleclick', 'ads/stats', 'pagead', 'ptracking'];
+    if (ADS.some(path => url.href.includes(path))) {
         event.respondWith(new Response('', { status: 200 }));
         return;
     }
 
-    // INYECCIÓN DE CÓDIGO (Para que el video nunca se detenga)
-    if (url.includes('m.youtube.com')) {
+    // 3. INYECCIÓN DE ADN (El limpiador visual de respaldo)
+    if (url.hostname.includes('m.youtube.com')) {
         event.respondWith(
             fetch(event.request).then(async (res) => {
                 let html = await res.text();
-                // Este script engaña al reproductor para que crea que los anuncios ya pasaron
-                const antiAdScript = `
-                    <script>
-                        setInterval(() => {
-                            const v = document.querySelector('video');
-                            if (document.querySelector('.ad-showing')) {
-                                if (v) v.currentTime = v.duration;
-                                document.querySelector('.ytp-ad-skip-button')?.click();
+                const script = `
+                <script>
+                    // Forzamos cookies de región en el navegador
+                    document.cookie = "PREF=f1=50000000&gl=AL; domain=.youtube.com; path=/";
+                    
+                    setInterval(() => {
+                        const v = document.querySelector('video');
+                        if (document.querySelector('.ad-showing, .ad-interrupting')) {
+                            if (v) {
+                                v.muted = true;
+                                v.playbackRate = 16;
+                                v.currentTime = v.duration - 0.1;
                             }
-                        }, 250);
-                    </script>
-                `;
-                const modHtml = html.replace('</head>', antiAdScript + '</head>');
-                return new Response(modHtml, { headers: res.headers });
+                            document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
+                        }
+                        // Borrar banners de la interfaz
+                        document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-promo-renderer').forEach(e => e.remove());
+                    }, 300);
+                </script>`;
+                return new Response(html.replace('</head>', script + '</head>'), { headers: res.headers });
             }).catch(() => fetch(event.request))
         );
         return;
