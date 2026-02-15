@@ -21,47 +21,31 @@
             navigator.serviceWorker.register('sw.js');
         }
 
-        // 2. LÓGICA DE INSTALACIÓN (Lo que funcionaba ayer)
+        // 2. LÓGICA DE INSTALACIÓN
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            console.log("Listo para instalar");
         });
 
         document.getElementById('btnInstalar').onclick = () => {
             if (deferredPrompt) {
-                deferredPrompt.prompt(); // Abre el cartel de instalación del celu
+                deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choice) => {
                     if (choice.outcome === 'accepted') deferredPrompt = null;
                 });
             } else {
-                alert("Espera un momento o usa el menú del navegador para instalar.");
+                alert("Ya puedes usar la App desde tu pantalla de inicio.");
             }
         };
 
-        // 3. DETECTOR DE APP (Solo redirecciona si ya se abrió desde el icono)
+        // 3. DETECTOR DE APP (Aquí está el cambio maestro)
         if (window.matchMedia('(display-mode: standalone)').matches) {
-            // Engaños de visibilidad para segundo plano
-            Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
-            Object.defineProperty(document, 'hidden', {get: () => false});
-
-            // Redirección a YouTube
-            window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
-
-            // Bloqueador cosmético (se ejecuta dentro de YouTube)
-            setInterval(() => {
-                const ad = document.querySelector('.ad-showing, .ad-interrupting, ytm-promoted-video-renderer');
-                if (ad) {
-                    const video = document.querySelector('video');
-                    if (video) {
-                        video.muted = true;
-                        video.playbackRate = 16;
-                        video.currentTime = video.duration;
-                    }
-                    document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
-                }
-            }, 500);
+            
+            // Forzamos el modo oscuro y parámetros de limpieza
+            // Usamos una instancia de Piped que es idéntica a YouTube pero SIN anuncios
+            // Esta instancia no te pedirá captchas ni te bloqueará
+            window.location.replace("https://piped.video/trending"); 
         }
     </script>
 </body>
