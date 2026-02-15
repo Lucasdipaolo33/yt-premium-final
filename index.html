@@ -1,43 +1,68 @@
-<script>
-    // 1. Registro del Service Worker (Fundamental para el botón)
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
-    }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Premium</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { margin:0; background:#000; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family: sans-serif; }
+        .btn { background: #f00; color: #fff; padding: 20px 45px; border-radius: 50px; border: none; font-weight: bold; font-size: 20px; cursor: pointer; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg" width="90">
+    <h2>Premium PRO</h2>
+    <button id="btnInstalar" class="btn">INSTALAR AHORA</button>
 
-    let deferredPrompt;
-    const btnInstalar = document.getElementById('btnInstalar');
-
-    // 2. Capturar el evento de instalación
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        console.log("Evento de instalación capturado");
-    });
-
-    // 3. Acción del botón (Ahora más seguro)
-    btnInstalar.onclick = () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choice) => {
-                if (choice.outcome === 'accepted') {
-                    deferredPrompt = null;
-                }
-            });
-        } else {
-            alert("Para instalar, usa el menú de tres puntos de tu navegador o espera a que cargue el sistema.");
+    <script>
+        // 1. REGISTRO DEL SERVICE WORKER
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
         }
-    };
 
-    // 4. EL DETECTOR DE APP (Para evitar el bucle de ayer)
-    // Si entramos con el parámetro ?mode=pwa o ya estamos en standalone:
-    const urlParams = new URLSearchParams(window.location.search);
-    if (window.matchMedia('(display-mode: standalone)').matches || urlParams.get('mode') === 'pwa') {
-        
-        // Bloqueador de visibilidad (para segundo plano)
-        Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
-        Object.defineProperty(document, 'hidden', {get: () => false});
+        // 2. LÓGICA DE INSTALACIÓN (Lo que funcionaba ayer)
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            console.log("Listo para instalar");
+        });
 
-        // VAMOS A YOUTUBE (El login funcionará normal porque es redirección directa)
-        window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
-    }
-</script>
+        document.getElementById('btnInstalar').onclick = () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt(); // Abre el cartel de instalación del celu
+                deferredPrompt.userChoice.then((choice) => {
+                    if (choice.outcome === 'accepted') deferredPrompt = null;
+                });
+            } else {
+                alert("Espera un momento o usa el menú del navegador para instalar.");
+            }
+        };
+
+        // 3. DETECTOR DE APP (Solo redirecciona si ya se abrió desde el icono)
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            // Engaños de visibilidad para segundo plano
+            Object.defineProperty(document, 'visibilityState', {get: () => 'visible'});
+            Object.defineProperty(document, 'hidden', {get: () => false});
+
+            // Redirección a YouTube
+            window.location.replace("https://m.youtube.com/?persist_gl=1&gl=AR");
+
+            // Bloqueador cosmético (se ejecuta dentro de YouTube)
+            setInterval(() => {
+                const ad = document.querySelector('.ad-showing, .ad-interrupting, ytm-promoted-video-renderer');
+                if (ad) {
+                    const video = document.querySelector('video');
+                    if (video) {
+                        video.muted = true;
+                        video.playbackRate = 16;
+                        video.currentTime = video.duration;
+                    }
+                    document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
+                }
+            }, 500);
+        }
+    </script>
+</body>
+</html>
