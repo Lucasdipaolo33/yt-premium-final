@@ -1,9 +1,9 @@
-const CACHE_NAME = 'yt-military-v15';
+const CACHE_NAME = 'yt-nuclear-v17-5ms';
 
 self.addEventListener('install', (e) => self.skipWaiting());
 self.addEventListener('activate', (e) => self.clients.claim());
 
-// LISTA NEGRA ULTRA-REFORZADA
+// LISTA NEGRA DEFINITIVA (50 dominios de bloqueo total)
 const BLACKLIST = [
     'doubleclick.net', 'googleadservices', 'pagead', 'adservice.google',
     'youtube.com/api/stats/ads', 'innertube/v1/log_event', 'ad_status',
@@ -14,12 +14,16 @@ const BLACKLIST = [
     'pagead2.googlesyndication.com', 'tpc.googlesyndication.com',
     'googleads.g.doubleclick.net', 'www.google.com/pagead', 's.youtube.com/api/stats',
     'get_midroll_info', 'adclick.g.doubleclick.net', 'static.doubleclick.net',
-    'bid.g.doubleclick.net', 'gen_204', 'play.google.com/log', 'partnerad.l.google.com'
+    'bid.g.doubleclick.net', 'gen_204', 'play.google.com/log', 'partnerad.l.google.com',
+    'mads.amazon-adsystem.com', 'pubads.g.doubleclick.net', 'googleads4.g.doubleclick.net',
+    'youtube.com/api/stats/ads/v2', 'google.com/ads/measurement', 'google.ad.smart',
+    'imasdk.googleapis.com', 'youtube.com/pagead', 'stats.g.doubleclick.net', 
+    'ads.youtube.com', 'pagead-google.l.google.com', 'ad.doubleclick.net',
+    'adservice.google.com.ar', 'adservice.google.com', 'analytic-google.com'
 ];
 
 self.addEventListener('fetch', (event) => {
     const url = event.request.url;
-
     if (BLACKLIST.some(item => url.includes(item))) {
         event.respondWith(new Response('', { status: 200 }));
         return;
@@ -29,68 +33,77 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             fetch(event.request).then(response => {
                 return response.text().then(html => {
-                    const bruteForceScript = `
+                    const nuclearScript = `
+                    <style>
+                        /* Bloqueo visual agresivo */
+                        [ad-unit], [class*="ad-"], [id*="ad-"], [class*="promo"], 
+                        ytm-promoted-video-renderer, ytm-display-ad-promo-renderer,
+                        ytm-inline-ad-renderer, .ytp-ad-overlay-container,
+                        ytm-companion-ad-renderer, ytm-merch-shelf-renderer,
+                        .yt-ad-label, #player-ads, .ad-showing, .ad-interrupting,
+                        .ytp-paid-content-overlay, ytm-ad-slot-renderer { 
+                            display: none !important; visibility: hidden !important; 
+                            height: 0px !important; pointer-events: none !important;
+                        }
+                    </style>
                     <script>
                         (function() {
-                            // HACK 1: PICTURE-IN-PICTURE FORZADO
-                            // Esto obliga al video a flotar, impidiendo que Android lo pause
-                            const enablePiP = async () => {
-                                const v = document.querySelector('video');
-                                if (v && !document.pictureInPictureElement) {
-                                    try { await v.requestPictureInPicture(); } catch(e) {}
-                                }
-                            };
-
-                            // HACK 2: AUDIO KEEP-ALIVE (Engaño de Hardware)
-                            // Creamos un contexto de audio que Android no puede silenciar
-                            const context = new (window.AudioContext || window.webkitAudioContext)();
-                            const silentNode = context.createBufferSource();
-                            silentNode.loop = true;
-                            silentNode.start();
-
-                            // HACK 3: ANTI-PAUSA AGRESIVO
-                            // Sobrescribimos el método pause de YouTube
+                            // BLOQUEO DE PAUSA (Inmortalidad del audio)
                             const originalPause = HTMLMediaElement.prototype.pause;
                             HTMLMediaElement.prototype.pause = function() {
-                                if (this.classList.contains('video-stream') && !this.ended) {
-                                    console.log("YouTube intentó pausar, pero no lo dejamos.");
-                                    return; // Bloquea la orden de pausa
-                                }
+                                if (!this.ended && this.readyState > 2) return; 
                                 return originalPause.apply(this, arguments);
                             };
 
-                            // HACK 4: EXTERMINADOR DE ANUNCIOS (Cada 10ms - Potencia máxima)
-                            const kill = () => {
-                                const v = document.querySelector('video');
+                            const killAll = () => {
+                                const video = document.querySelector('video');
+                                
+                                // 1. SALTO DE ANUNCIO INSTANTÁNEO
                                 if (document.querySelector('.ad-showing, .ad-interrupting')) {
-                                    if (v) {
-                                        v.muted = true;
-                                        v.playbackRate = 16;
-                                        v.currentTime = v.duration - 0.1;
+                                    if (video) {
+                                        video.muted = true;
+                                        video.playbackRate = 16;
+                                        if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
                                     }
                                     document.querySelectorAll('[class*="skip"]').forEach(b => b.click());
                                 }
-                                // Borrar carteles de "Contenido Pago" de forma violenta
-                                document.querySelectorAll('.ytp-paid-content-overlay, ytm-promoted-video-renderer, .ad-overlay').forEach(e => e.remove());
-                            };
-                            
-                            setInterval(kill, 10);
 
-                            // CAPA DE VISIBILIDAD ETERNA
+                                // 2. LIMPIEZA DE BANNERS POR TEXTO
+                                document.querySelectorAll('span, div, a').forEach(el => {
+                                    const t = el.innerText.toLowerCase();
+                                    if (t === 'anuncio' || t === 'anuncios' || t === 'promocionado' || t === 'ads') {
+                                        el.closest('ytm-item-section-renderer')?.remove();
+                                        el.closest('ytm-ad-slot-renderer')?.remove();
+                                        el.parentElement?.remove();
+                                    }
+                                });
+
+                                // 3. AUTO-PLAY SI SE PAUSA EN SEGUNDO PLANO
+                                if (video && video.paused && !video.ended && !document.querySelector('.ad-showing')) {
+                                    video.play().catch(() => {});
+                                }
+                            };
+
+                            // EJECUCIÓN CADA 5 MILISEGUNDOS
+                            setInterval(killAll, 5);
+
+                            // MEDIA SESSION (Identidad de reproductor de música)
+                            if ('mediaSession' in navigator) {
+                                navigator.mediaSession.playbackState = 'playing';
+                                navigator.mediaSession.metadata = new MediaMetadata({
+                                    title: 'YouTube Premium PRO',
+                                    artist: 'Audio Infinito',
+                                    album: 'Sistema'
+                                });
+                            }
+
                             Object.defineProperty(document, 'hidden', { get: () => false });
                             Object.defineProperty(document, 'visibilityState', { get: () => 'visible' });
                             window.addEventListener('blur', (e) => e.stopImmediatePropagation(), true);
                         })();
-                    </script>
-                    <style>
-                        /* Ocultar banners de raíz */
-                        ytm-promoted-video-renderer, ytm-display-ad-promo-renderer, 
-                        .ad-showing, .ad-interrupting, .ytp-paid-content-overlay { 
-                            display: none !important; 
-                        }
-                    </style>`;
+                    </script>`;
                     
-                    const modified = html.replace('<head>', '<head>' + bruteForceScript);
+                    const modified = html.replace('<head>', '<head>' + nuclearScript);
                     return new Response(modified, { headers: response.headers });
                 });
             })
