@@ -16,9 +16,11 @@
     <button id="btnInstalar" class="btn">INSTALAR AHORA</button>
 
     <script>
-        // 1. REGISTRO DEL SERVICE WORKER
+        // 1. REGISTRO DEL SERVICE WORKER (El cerebro que sobrevive a la redirección)
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
+            navigator.serviceWorker.register('sw.js').then(() => {
+                console.log("Escudo bloqueador activado");
+            });
         }
 
         // 2. LÓGICA DE INSTALACIÓN
@@ -35,17 +37,14 @@
                     if (choice.outcome === 'accepted') deferredPrompt = null;
                 });
             } else {
-                alert("Ya puedes usar la App desde tu pantalla de inicio.");
+                alert("La App ya está lista. Si ya la instalaste, búscala en tu pantalla de inicio.");
             }
         };
 
-        // 3. DETECTOR DE APP (Aquí está el cambio maestro)
+        // 3. DETECTOR DE APP INSTALADA
         if (window.matchMedia('(display-mode: standalone)').matches) {
-            
-            // Forzamos el modo oscuro y parámetros de limpieza
-            // Usamos una instancia de Piped que es idéntica a YouTube pero SIN anuncios
-            // Esta instancia no te pedirá captchas ni te bloqueará
-            window.location.replace("https://piped.video/trending"); 
+            // Redireccionamos a YouTube con el parámetro de Albania (gl=AL) para reducir anuncios de entrada
+            window.location.replace("https://m.youtube.com/?gl=AL");
         }
     </script>
 </body>
