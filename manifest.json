@@ -1,8 +1,8 @@
 {
   "name": "YouTube Premium PRO",
   "short_name": "YT PRO",
-  "start_url": "index.html",
-  "display": "browser",
+  "start_url": "index.html?mode=pwa",
+  "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [{
