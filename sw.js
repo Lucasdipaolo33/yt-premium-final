@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yt-pro-v3'; // Cambiamos el nombre para forzar la limpieza
+const CACHE_NAME = 'yt-exterminator-v4';
 
 const BLACKLIST = [
     'googleads.g.doubleclick.net', 'doubleclick.net', 'googlesyndication.com',
@@ -6,62 +6,61 @@ const BLACKLIST = [
     'youtube.com/pagead', 'video-stats.l.google.com', 'pubads.g.doubleclick.net'
 ];
 
-// REGLAS DEL GUERRERO 2 (El exterminador visual)
-const INJECTED_SCRIPT = `
-    const clean = () => {
-        // Borra banners patrocinados
-        document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-promo-renderer, .ad-showing, .ad-interrupting').forEach(el => el.remove());
-        
-        // Salta anuncios de video automáticamente
+// GUERRERO TOTAL: Detecta, Acelera y Salta
+const SCRIPT_EXTERMINADOR = `
+    const exterminate = () => {
+        // 1. Limpieza de Banners y Shorts Publicitarios
+        const adElements = document.querySelectorAll('ytm-promoted-video-renderer, ytm-display-ad-promo-renderer, .ad-showing, .ad-interrupting, ytm-inline-ad-renderer');
+        adElements.forEach(el => el.remove());
+
+        // 2. Ataque al Reproductor de Video
         const video = document.querySelector('video');
-        if (document.querySelector('.ytp-ad-player-overlay')) {
-            if (video) video.currentTime = video.duration || 0;
-            document.querySelector('.ytp-ad-skip-button')?.click();
+        const adOverlay = document.querySelector('.ytp-ad-player-overlay, .ytp-ad-message-container');
+
+        if (adOverlay || document.querySelector('.ad-showing')) {
+            if (video && video.currentTime > 0) {
+                video.muted = true;
+                video.playbackRate = 16; // Velocidad luz
+                video.currentTime = video.duration - 0.1; // Salto al final
+            }
+            // Click automático en el botón "Saltar" si aparece
+            document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
         }
     };
-    setInterval(clean, 500); // Ejecuta la limpieza cada medio segundo
+    setInterval(exterminate, 300); // Ejecución ultra rápida
 `;
 
 self.addEventListener('install', (e) => self.skipWaiting());
-
-// LIMPIEZA AUTOMÁTICA DE CACHÉ VIEJA
 self.addEventListener('activate', (e) => {
-    e.waitUntil(
-        caches.keys().then((keys) => {
-            return Promise.all(
-                keys.map((key) => {
-                    if (key !== CACHE_NAME) return caches.delete(key);
-                })
-            );
-        })
-    );
+    e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))));
     self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
     const url = event.request.url.toLowerCase();
 
-    // BLOQUEO DE RED (Guerrero 1)
+    // Bloqueo de Red (Guerrero 1)
     if (BLACKLIST.some(d => url.includes(d))) {
         event.respondWith(new Response('', { status: 200 }));
         return;
     }
 
-    // INYECCIÓN DEL GUERRERO 2 (Se mete en el ADN de la página)
+    // Inyección de ADN (Guerrero 2)
     if (url.includes('m.youtube.com')) {
         event.respondWith(
             fetch(event.request).then(async (res) => {
                 let html = await res.text();
-                // Inyectamos el script exterminador y el estilo de ocultado
-                const modifiedHtml = html.replace('</head>', 
-                    `<style>ytm-promoted-video-renderer{display:none!important;}</style>
-                     <script>${INJECTED_SCRIPT}</script></head>`);
-                
-                return new Response(modifiedHtml, { headers: res.headers });
+                const modHtml = html.replace('</head>', `
+                    <style>
+                        ytm-promoted-video-renderer, ytm-display-ad-promo-renderer, 
+                        ytm-inline-ad-renderer, .ad-showing { display: none !important; }
+                    </style>
+                    <script>${SCRIPT_EXTERMINADOR}</script></head>
+                `);
+                return new Response(modHtml, { headers: res.headers });
             }).catch(() => fetch(event.request))
         );
         return;
     }
-
     event.respondWith(fetch(event.request));
 });
