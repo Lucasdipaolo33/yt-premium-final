@@ -1,6 +1,6 @@
-const CACHE_NAME = 'yt-premium-v1';
+const CACHE_NAME = 'yt-pro-v2';
 
-// LISTA NEGRA DE SERVIDORES DE ANUNCIOS (De aquí vienen los banners y los cortes)
+// 1. LISTA NEGRA REFORZADA (Corta la conexión con los servidores de anuncios)
 const BLACKLIST = [
     'googleads.g.doubleclick.net',
     'doubleclick.net',
@@ -12,39 +12,51 @@ const BLACKLIST = [
     'video-stats.l.google.com',
     'pubads.g.doubleclick.net',
     'ad.doubleclick.net',
-    'static.doubleclick.net'
+    'static.doubleclick.net',
+    'ytimg.com/pagead', // Bloquea imágenes de anuncios
+    'google.com/pagead'
 ];
 
-// 1. INSTALACIÓN RÁPIDA
-self.addEventListener('install', (e) => {
-    self.skipWaiting();
-});
+// 2. REGLAS COSMÉTICAS (Para desaparecer banners "Patrocinados" y botones)
+const AD_STYLES = `
+    ytm-promoted-video-renderer, 
+    ytm-display-ad-promo-renderer, 
+    .ad-showing, 
+    .ad-interrupting, 
+    .ytp-ad-overlay-container, 
+    .ytp-ad-message-container,
+    ytm-companion-ad-renderer { 
+        display: none !important; 
+    }
+`;
 
-// 2. ACTIVACIÓN INMEDIATA
-self.addEventListener('activate', (e) => {
-    e.waitUntil(self.clients.claim());
-});
+self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('activate', (e) => self.clients.claim());
 
-// 3. EL FILTRO INTERCEPTOR (Aquí está la magia)
 self.addEventListener('fetch', (event) => {
     const url = event.request.url.toLowerCase();
 
-    // Si la petición es para uno de los servidores de la lista negra...
+    // A. BLOQUEO DE RED: Si es un servidor de anuncios, matamos la petición
     if (BLACKLIST.some(domain => url.includes(domain))) {
-        // Bloqueamos la petición devolviendo una respuesta vacía (status 200 pero sin datos)
-        event.respondWith(new Response('', {
-            status: 200,
-            statusText: 'OK',
-            headers: { 'Content-Type': 'text/plain' }
-        }));
+        event.respondWith(new Response('', { status: 200 }));
         return;
     }
 
-    // Si no es un anuncio, dejamos que la petición pase normal
-    event.respondWith(
-        fetch(event.request).catch(() => {
-            // Esto evita que la app se caiga si no hay internet
-            return caches.match(event.request);
-        })
-    );
+    // B. INYECCIÓN COSMÉTICA: Si es la página de YouTube, le inyectamos el CSS "veneno"
+    if (url.includes('m.youtube.com')) {
+        event.respondWith(
+            fetch(event.request).then(async (response) => {
+                let html = await response.text();
+                // Insertamos nuestro estilo justo antes de cerrar el head
+                const cleanHtml = html.replace('</head>', `<style>${AD_STYLES}</style></head>`);
+                return new Response(cleanHtml, {
+                    headers: response.headers
+                });
+            }).catch(() => fetch(event.request))
+        );
+        return;
+    }
+
+    // C. NAVEGACIÓN NORMAL
+    event.respondWith(fetch(event.request));
 });
