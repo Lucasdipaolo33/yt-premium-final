@@ -16,14 +16,15 @@
     <button id="btnInstalar" class="btn">INSTALAR AHORA</button>
 
     <script>
-        // 1. REGISTRO DEL SERVICE WORKER (El cerebro que sobrevive a la redirección)
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(() => {
-                console.log("Escudo bloqueador activado");
-            });
+            navigator.serviceWorker.register('sw.js', { scope: '/' });
         }
 
-        // 2. LÓGICA DE INSTALACIÓN
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            // Entramos con parámetros de limpieza total
+            window.location.replace("https://m.youtube.com/?gl=AL&persist_gl=1&theme=dark");
+        }
+
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
@@ -33,19 +34,10 @@
         document.getElementById('btnInstalar').onclick = () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choice) => {
-                    if (choice.outcome === 'accepted') deferredPrompt = null;
-                });
             } else {
-                alert("La App ya está lista. Si ya la instalaste, búscala en tu pantalla de inicio.");
+                alert("Ya está instalado. Ábrelo desde tu pantalla de inicio.");
             }
         };
-
-        // 3. DETECTOR DE APP INSTALADA
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            // Redireccionamos a YouTube con el parámetro de Albania (gl=AL) para reducir anuncios de entrada
-            window.location.replace("https://m.youtube.com/?gl=AL");
-        }
     </script>
 </body>
 </html>
