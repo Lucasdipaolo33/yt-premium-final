@@ -1,96 +1,116 @@
-const CACHE_NAME = 'yt-hacker-final-v90';
+const CACHE_NAME = 'yt-elite-final-v100';
 
 self.addEventListener('install', e => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', e => {
+    e.waitUntil(self.clients.claim());
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+});
 
-// Filtros de Red de Grado Industrial
-const ADBLOCK_LIST = [
-    'doubleclick.net', 'googleadservices', 'pagead', 'adservice.google',
-    'youtube.com/api/stats/ads', 'innertube/v1/log_event', 'ad_status',
-    'securepubads', 'googlesyndication', 'ads/stats/watch', 'pixel.google',
-    'googleads.g.doubleclick.net', 'gen_204', 'imasdk.googleapis.com', 
-    'm.youtube.com/api/stats/v2', 'adformat=', 'adunits'
-];
+// LISTA NEGRA DE SERVIDORES DE AD-SHIPPING
+const BLACKLIST = ['doubleclick.net', 'googleadservices', 'pagead', 'adservice.google', 'youtube.com/api/stats/ads', 'innertube/v1/log_event', 'securepubads', 'googlesyndication', 'googleads.g.doubleclick.net', 'imasdk.googleapis.com', 'm.youtube.com/api/stats/v2', 'adformat=', 'adunits'];
 
 self.addEventListener('fetch', (event) => {
     const url = event.request.url;
 
-    // BLOQUEO DE PETICIONES ANTES DE QUE SALGAN
-    if (ADBLOCK_LIST.some(item => url.includes(item))) {
+    // BLOQUEO RADICAL DE PETICIONES
+    if (BLACKLIST.some(item => url.includes(item))) {
         event.respondWith(new Response('', { status: 200 }));
         return;
     }
 
     if (url.includes('m.youtube.com')) {
+        // MODIFICACIÓN DE CABECERAS PARA ENGAÑAR AL SERVIDOR (User-Agent Spoofing)
+        const modifiedRequest = new Request(event.request, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36' }
+        });
+
         event.respondWith(
-            fetch(event.request, {
-                headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36' }
-            }).then(response => {
+            fetch(modifiedRequest).then(response => {
                 if (!response.headers.get('content-type')?.includes('text/html')) return response;
 
                 return response.text().then(html => {
-                    const injection = `
+                    const eliteInjection = `
                     <script>
                         (function() {
-                            // 1. ANULAR TODA DETECCIÓN DE VISIBILIDAD (HACK DE SEGUNDO PLANO)
-                            const block = (e) => { e.stopImmediatePropagation(); };
-                            window.addEventListener('visibilitychange', block, true);
-                            window.addEventListener('blur', block, true);
-                            window.addEventListener('pagehide', block, true);
-                            
+                            // 1. EL SECRETO DEL SEGUNDO PLANO (REDEFINIR EL MOTOR DE AUDIO)
+                            const hijackAudio = () => {
+                                const originalPlay = HTMLMediaElement.prototype.play;
+                                HTMLMediaElement.prototype.play = function() {
+                                    this.setAttribute('playsinline', 'true');
+                                    this.setAttribute('webkit-playsinline', 'true');
+                                    return originalPlay.apply(this, arguments);
+                                };
+                                
+                                // Bloqueamos la pausa forzada por visibilidad
+                                const originalPause = HTMLMediaElement.prototype.pause;
+                                HTMLMediaElement.prototype.pause = function() {
+                                    if (document.visibilityState === 'hidden' && this.classList.contains('video-stream')) {
+                                        return new Promise(() => {}); // Promesa que nunca se resuelve = nunca pausa
+                                    }
+                                    return originalPause.apply(this, arguments);
+                                };
+                            };
+
+                            // 2. REESCRITURA DEL DOM (ELIMINACIÓN DE RAÍZ)
+                            const killEverythingAds = () => {
+                                const selectors = [
+                                    'ytm-ad-slot-renderer', 'ytm-promoted-video-renderer', 
+                                    'ytm-rich-item-renderer:has(.ytm-ad-slot-renderer)',
+                                    '.ad-showing', '.ad-interrupting', 'ytm-companion-ad-renderer'
+                                ];
+                                selectors.forEach(s => {
+                                    document.querySelectorAll(s).forEach(el => el.remove());
+                                });
+                            };
+
+                            // 3. ENGAÑO DE PREMIUM (JSON INTERCEPTOR)
+                            const orgParse = JSON.parse;
+                            JSON.parse = function() {
+                                const data = orgParse.apply(this, arguments);
+                                if (data && data.playerConfig) {
+                                    data.playerConfig.audioConfig = data.playerConfig.audioConfig || {};
+                                    data.playerConfig.audioConfig.enableBackgroundPlayback = true; // ACTIVAMOS EL SEGUNDO PLANO EN EL JSON
+                                }
+                                if (data && data.adPlacements) data.adPlacements = [];
+                                return data;
+                            };
+
+                            // INICIO DE OPERACIONES
+                            hijackAudio();
+                            setInterval(() => {
+                                killEverythingAds();
+                                // Saltar anuncios de video a 16x
+                                const v = document.querySelector('video');
+                                if (v && document.querySelector('.ad-showing')) {
+                                    v.playbackRate = 16;
+                                    v.currentTime = v.duration - 0.1;
+                                    document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
+                                }
+                            }, 100);
+
+                            // FORZAR LOGO PREMIUM
+                            const fixLogo = () => {
+                                const logo = document.querySelector('ytm-masthead-logo-renderer .header-logo-icon');
+                                if (logo) logo.style.content = "url('https://upload.wikimedia.org/wikipedia/commons/b/b8/YouTube_Premium_logo_2017.svg')";
+                            };
+                            setInterval(fixLogo, 500);
+
+                            // BYPASS DE VISIBILIDAD (NIVEL KERNEL)
                             Object.defineProperties(document, {
                                 'visibilityState': { get: () => 'visible' },
                                 'hidden': { get: () => false }
                             });
-
-                            // 2. FORZAR AUDIO Y VIDEO (Background Play)
-                            setInterval(() => {
-                                const v = document.querySelector('video');
-                                if (v) {
-                                    v.setAttribute('playsinline', 'true');
-                                    v.setAttribute('webkit-playsinline', 'true');
-                                    if (v.paused && !v.ended && document.visibilityState === 'visible') {
-                                        // Esto evita que se pause al bloquear
-                                    }
-                                }
-                                // Auto-click en Skip Ads
-                                document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
-                            }, 200);
-
-                            // 3. EXTERMINADOR DE BANNERS (Búsqueda por Atributo Oculto)
-                            const killAds = () => {
-                                // Buscamos elementos que tengan datos de anuncios en su configuración interna
-                                document.querySelectorAll('ytm-rich-item-renderer, ytm-ad-slot-renderer').forEach(el => {
-                                    if (el.hasAttribute('ad-presentation') || el.innerHTML.includes('ad-slot') || el.innerText.includes('Anuncio')) {
-                                        el.remove();
-                                    }
-                                });
-                            };
-                            
-                            const observer = new MutationObserver(killAds);
-                            observer.observe(document.documentElement, { childList: true, subtree: true });
-
-                            // 4. INTERCEPTOR DE JSON (Limpieza de respuesta del servidor)
-                            const originalParse = JSON.parse;
-                            JSON.parse = function() {
-                                const data = originalParse.apply(this, arguments);
-                                if (data && data.adPlacements) data.adPlacements = [];
-                                if (data && data.playerAds) data.playerAds = [];
-                                return data;
-                            };
                         })();
                     </script>
                     <style>
-                        /* ELIMINAR BANNERS DE SCROLL Y PUBLICITADOS */
-                        ytm-ad-slot-renderer, .ad-showing, ytm-promoted-video-renderer,
+                        /* ESTILOS DE BLOQUEO TOTAL */
+                        ytm-ad-slot-renderer, .ad-showing, .ad-interrupting, 
                         ytm-rich-item-renderer:has(.ytm-ad-slot-renderer),
-                        [aria-label*="Anuncio"], .ytp-ad-overlay-container {
-                            display: none !important;
-                            height: 0px !important;
-                        }
+                        [aria-label*="Anuncio"], .ytp-ad-overlay-container,
+                        ytm-brand-video-singleton-renderer { display: none !important; height: 0 !important; }
                     </style>`;
-                    
-                    const modified = html.replace('<head>', '<head>' + injection);
+
+                    const modified = html.replace('<head>', '<head>' + eliteInjection);
                     return new Response(modified, { headers: response.headers });
                 });
             })
