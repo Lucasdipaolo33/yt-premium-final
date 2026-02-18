@@ -1,23 +1,12 @@
-const CACHE_NAME = 'yt-pro-auto-purge-v50';
+const CACHE_NAME = 'yt-nuclear-v60';
 
-// --- 1. AUTOMATIZACIÓN TOTAL: LIMPIEZA DE CACHÉ SIN INTERVENCIÓN ---
-self.addEventListener('install', e => {
-    self.skipWaiting(); // Fuerza la actualización inmediata
-});
-
+self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => {
-    e.waitUntil(
-        Promise.all([
-            self.clients.claim(),
-            // Borra absolutamente todo lo anterior automáticamente
-            caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))),
-            // Limpia el storage de la web de YouTube
-            self.registration.unregister().then(() => console.log("Caché purgado automáticamente"))
-        ])
-    );
+    e.waitUntil(self.clients.claim());
+    // Purga total de caché para que los cambios entren al segundo 1
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
 });
 
-// --- 2. EL BLOQUEADOR DE RED (Filtros de AdGuard/uBlock) ---
 const BLACKLIST = [
     'doubleclick.net', 'googleadservices', 'pagead', 'adservice.google',
     'youtube.com/api/stats/ads', 'innertube/v1/log_event', 'ad_status',
@@ -43,72 +32,102 @@ self.addEventListener('fetch', (event) => {
                     const hackerScript = `
                     <script>
                         (function() {
-                            // --- A. EMULACIÓN DE APK: SEGUNDO PLANO FORZADO ---
-                            const unlockBackground = () => {
-                                // Engaño de visibilidad
-                                Object.defineProperties(document, {
-                                    'hidden': { get: () => false },
-                                    'visibilityState': { get: () => 'visible' }
-                                });
-
-                                // Secuestro de eventos de pausa
-                                window.addEventListener('pause', e => {
-                                    e.stopImmediatePropagation();
-                                    const v = document.querySelector('video');
-                                    if (v && !v.ended) v.play().catch(() => {});
-                                }, true);
-
-                                // Truco de la MediaSession (Nivel Pro)
-                                if ('mediaSession' in navigator) {
-                                    navigator.mediaSession.playbackState = 'playing';
-                                    navigator.mediaSession.setActionHandler('pause', () => {
-                                        document.querySelector('video')?.play();
-                                    });
+                            // 1. ATAQUE DE PROTOTIPOS: ANULAR LA PAUSA (SEGUNDO PLANO)
+                            const originalPause = HTMLMediaElement.prototype.pause;
+                            HTMLMediaElement.prototype.pause = function() {
+                                // Si YouTube intenta pausar el video por "falta de visibilidad", bloqueamos la orden
+                                if (this.classList.contains('video-stream') && !this.ended && document.visibilityState === 'hidden') {
+                                    console.log("Intento de pausa bloqueado - Modo Background Activo");
+                                    return; 
                                 }
+                                return originalPause.apply(this, arguments);
                             };
 
-                            // --- B. EXTERMINADOR DE BANNERS "ENTRE VIDEOS" ---
-                            const killBanners = () => {
-                                // Buscamos por estructura de datos, no solo por nombre de clase
-                                const adElements = document.querySelectorAll('ytm-rich-item-renderer, ytm-ad-slot-renderer, ytm-promoted-video-renderer');
-                                adElements.forEach(el => {
-                                    if (el.innerHTML.includes('ad-') || el.innerHTML.includes('publicitado') || el.querySelector('[class*="ad-"]')) {
-                                        el.remove();
-                                    }
-                                });
-                            };
+                            // Forzamos el estado de visibilidad perpetuo
+                            Object.defineProperties(document, {
+                                'hidden': { get: () => false },
+                                'visibilityState': { get: () => 'visible' }
+                            });
 
-                            // --- C. INTERCEPTOR DE JSON (Limpieza de raíz) ---
+                            // 2. SECUESTRO DE JSON (Elimina anuncios antes de que el reproductor los pida)
                             const orgParse = JSON.parse;
                             JSON.parse = function() {
                                 const res = orgParse.apply(this, arguments);
-                                if (res?.adPlacements) res.adPlacements = [];
-                                if (res?.playerAds) res.playerAds = [];
+                                if (res && res.adPlacements) res.adPlacements = [];
+                                if (res && res.playerAds) res.playerAds = [];
+                                if (res && res.adSlots) res.adSlots = [];
+                                if (res && res.masthead) delete res.masthead;
                                 return res;
                             };
 
-                            // Ejecución constante
-                            setInterval(() => {
-                                unlockBackground();
-                                killBanners();
-                                // Salto de anuncios de video
-                                const v = document.querySelector('video');
-                                if (document.querySelector('.ad-showing')) {
-                                    v.playbackRate = 16;
-                                    v.currentTime = v.duration - 0.1;
-                                    document.querySelector('.ytp-ad-skip-button')?.click();
+                            // 3. EXTERMINADOR DE BANNERS DINÁMICOS (SCROLL)
+                            const exterminate = () => {
+                                // Buscamos cualquier elemento que contenga la palabra "Anuncio" o "Publicitado"
+                                const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+                                let node;
+                                while(node = walk.nextNode()) {
+                                    if (node.textContent.includes('Anuncio') || node.textContent.includes('Publicitado')) {
+                                        let container = node.parentElement.closest('ytm-rich-item-renderer') || node.parentElement.closest('ytm-ad-slot-renderer');
+                                        if (container) container.remove();
+                                    }
                                 }
-                            }, 100);
+                                // Limpieza de contenedores conocidos
+                                document.querySelectorAll('ytm-ad-slot-renderer, .ad-unit, ytm-promoted-video-renderer, ytm-companion-ad-renderer').forEach(el => el.remove());
+                            };
 
-                            // Auto-limpieza de historial de búsqueda de anuncios
-                            try { localStorage.clear(); sessionStorage.clear(); } catch(e){}
+                            // 4. AUTO-SKIP DE VIDEOS (16x Speed)
+                            const autoSkip = () => {
+                                const video = document.querySelector('video');
+                                if (document.querySelector('.ad-showing, .ad-interrupting')) {
+                                    if (video) {
+                                        video.muted = true;
+                                        video.playbackRate = 16; 
+                                        if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
+                                    }
+                                    document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
+                                }
+                            };
+
+                            // Bucle de ejecución agresivo (cada 50ms)
+                            setInterval(() => {
+                                exterminate();
+                                autoSkip();
+                            }, 50);
+
+                            // Cambiar Logo a Premium (Inyección Estética)
+                            const changeLogo = () => {
+                                const logo = document.querySelector('ytm-masthead-logo-renderer .header-logo-icon');
+                                if (logo) logo.style.content = "url('https://upload.wikimedia.org/wikipedia/commons/b/b8/YouTube_Premium_logo_2017.svg')";
+                            };
+                            setInterval(changeLogo, 1000);
+
+                            // SponsorBlock Integration
+                            const vId = new URLSearchParams(window.location.search).get('v');
+                            if (vId && window._lastV !== vId) {
+                                window._lastV = vId;
+                                fetch('https://sponsor.ajay.app/api/skipSegments?videoID='+vId+'&category=["sponsor","intro"]')
+                                .then(r => r.json()).then(s => { window._s = s; }).catch(() => {});
+                            }
+                            if (window._s && document.querySelector('video')) {
+                                const v = document.querySelector('video');
+                                window._s.forEach(seg => {
+                                    if (v.currentTime >= seg.segment[0] && v.currentTime < seg.segment[1]) v.currentTime = seg.segment[1];
+                                });
+                            }
                         })();
                     </script>
                     <style>
-                        /* Oculta los banners publicitados que aparecen al scrollear */
+                        /* Bloqueo por CSS preventivo */
+                        ytm-ad-slot-renderer, .ad-showing, .ad-interrupting, 
+                        ytm-promoted-video-renderer, ytm-rich-item-renderer:has([aria-label*="Anuncio"]),
                         ytm-rich-item-renderer:has(.ytm-ad-slot-renderer),
-                        ytm-ad-slot-renderer, .ytp-ad-overlay-container,
-                        [class*="ad-unit"], .ad-showing { display: none !important; }
+                        .ytp-paid-content-overlay { display: none !important; height: 0 !important; }
+                        
+                        /* Forzar logo Premium */
+                        ytm-masthead-logo-renderer .header-logo-icon {
+                            content: url('https://upload.wikimedia.org/wikipedia/commons/b/b8/YouTube_Premium_logo_2017.svg') !important;
+                            width: 100px !important;
+                        }
                     </style>`;
 
                     const modified = html.replace('<head>', '<head>' + hackerScript);
