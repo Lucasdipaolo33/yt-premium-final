@@ -1,6 +1,6 @@
-const CACHE_NAME = 'yt-industrial-v20-extreme';
+const CACHE_NAME = 'yt-industrial-v21-sponsorblock';
 
-// 1. ACTIVACIÓN Y LIMPIEZA
+// 1. ACTIVACIÓN Y PURGA
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         Promise.all([
@@ -10,7 +10,7 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// 2. BLACKLIST AMPLIADA (Nuevos endpoints detectados)
+// 2. BLACKLIST REFORZADA (Bloqueo de peticiones de anuncios)
 const BLACKLIST = [
     'doubleclick.net', 'googleadservices', 'pagead', 'adservice.google',
     'youtube.com/api/stats/ads', 'innertube/v1/log_event', 'ad_status',
@@ -20,109 +20,118 @@ const BLACKLIST = [
     'youtube.com/api/stats/delay', 'api/stats/atr', 'googletagmanager.com',
     'pagead2.googlesyndication.com', 'tpc.googlesyndication.com',
     'googleads.g.doubleclick.net', 'www.google.com/pagead', 's.youtube.com/api/stats',
-    'get_midroll_info', 'adclick.g.doubleclick.net', 'static.doubleclick.net',
-    'bid.g.doubleclick.net', 'gen_204', 'play.google.com/log', 'partnerad.l.google.com',
-    'mads.amazon-adsystem', 'pubads.g.doubleclick', 'googleads4.g.doubleclick',
-    'imasdk.googleapis.com', 'stats.g.doubleclick', 'youtube.com/ptracking',
-    'ad-delivery', 'vpaid.ads', 'google.com/asw', 'youtube.com/csi',
-    'm.youtube.com/api/stats/v2', 'adformat=', 'adunits', 'pwt/', 'fastlane',
-    'sb.scorecardresearch.com', 'youtube.com/api/stats/ads', 
-    'youtube.com/error_204', 'google.com/pagead', 'pagead2.googleadservices'
+    'gen_204', 'play.google.com/log', 'imasdk.googleapis.com', 'youtube.com/ptracking',
+    'm.youtube.com/api/stats/v2', 'adformat=', 'adunits', 'pwt/', 'fastlane'
 ];
 
 self.addEventListener('fetch', (event) => {
     const url = event.request.url;
 
-    // A. BLOQUEO DE RED (Si es anuncio, ni siquiera se pide)
+    // Bloqueo inmediato si la URL está en la lista negra
     if (BLACKLIST.some(item => url.includes(item))) {
         event.respondWith(new Response('', { status: 200 }));
         return;
     }
 
-    // B. MODIFICACIÓN DEL HTML DE YOUTUBE MÓVIL
     if (url.includes('m.youtube.com')) {
         event.respondWith(
-            fetch(event.request)
-                .then(response => {
-                    // Si la respuesta no es HTML, la pasamos tal cual
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('text/html')) {
-                        return response;
-                    }
+            fetch(event.request).then(response => {
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('text/html')) return response;
 
-                    return response.text().then(html => {
-                        const extremeScript = `
-                        <script>
-                            (function() {
-                                // 1. FORZAR ESTADO PREMIUM EN CUALQUIER VARIABLE
-                                const forcePremium = () => {
-                                    if (window.ytcfg && window.ytcfg.data_) {
-                                        const d = window.ytcfg.data_;
-                                        if (d.EXPERIMENT_FLAGS) d.EXPERIMENT_FLAGS.control_notification_for_external_ads = false;
-                                        d.IS_PREMIUM = true;
-                                        d.LOGGED_IN = true;
-                                    }
-                                    window.ytplayer = window.ytplayer || {};
-                                    window.ytplayer.config = window.ytplayer.config || {};
-                                    if (window.ytplayer.config.args) {
-                                        window.ytplayer.config.args.is_premium = "1";
-                                        window.ytplayer.config.args.ad_device_id = "";
-                                    }
-                                };
+                return response.text().then(html => {
+                    const finalScript = `
+                    <script>
+                        (function() {
+                            // --- A. INTEGRACIÓN SPONSORBLOCK ---
+                            const skipSponsors = (videoId) => {
+                                fetch('https://sponsor.ajay.app/api/skipSegments?videoID=' + videoId + '&category=["sponsor","selfpromo","interaction","intro"]')
+                                .then(r => r.json())
+                                .then(segments => {
+                                    window._segments = segments;
+                                    console.log("SponsorBlock cargado para: " + videoId);
+                                }).catch(() => {});
+                            };
 
-                                // 2. ESCÁNER DE ANUNCIOS (Detección de rastro en el player)
-                                const killAds = () => {
-                                    const video = document.querySelector('video');
-                                    const adShowing = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
-                                    
-                                    if (adShowing && video) {
-                                        video.muted = true;
-                                        video.playbackRate = 16;
-                                        if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
-                                        
-                                        // Clic automático en botones de "Saltar"
-                                        const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .videoAdUiSkipButton');
-                                        if (skipBtn) skipBtn.click();
-                                    }
+                            // --- B. INTERCEPTOR DE DATOS (Anti-Server Side Ads) ---
+                            const cleanYTData = (obj) => {
+                                if (!obj) return;
+                                if (obj.adSlots) obj.adSlots = [];
+                                if (obj.adPlacements) obj.adPlacements = [];
+                                if (obj.playerAds) obj.playerAds = [];
+                                if (obj.adBreakService) delete obj.adBreakService;
+                                if (obj.IS_PREMIUM !== undefined) obj.IS_PREMIUM = true;
+                            };
 
-                                    // Borrar banners y elementos publicitarios dinámicos
-                                    const selectors = [
-                                        'ytm-promoted-video-renderer', 'ytm-ad-slot-renderer', 
-                                        '#player-ads', '.ytp-ad-overlay-container', 'ytm-companion-ad-renderer'
-                                    ];
-                                    selectors.forEach(s => {
-                                        document.querySelectorAll(s).forEach(el => el.remove());
+                            // Secuestro de JSON.parse para limpiar datos de anuncios en el vuelo
+                            const orgParse = JSON.parse;
+                            JSON.parse = function() {
+                                const res = orgParse.apply(this, arguments);
+                                cleanYTData(res);
+                                return res;
+                            };
+
+                            // --- C. BUCLE DE EJECUCIÓN (5ms) ---
+                            setInterval(() => {
+                                const video = document.querySelector('video');
+                                if (!video) return;
+
+                                // 1. Saltar anuncio tradicional si aparece
+                                if (document.querySelector('.ad-showing, .ad-interrupting')) {
+                                    video.muted = true;
+                                    video.playbackRate = 16;
+                                    if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
+                                    document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern').forEach(b => b.click());
+                                }
+
+                                // 2. Lógica SponsorBlock (Saltar segmentos grabados)
+                                if (window._segments) {
+                                    const curr = video.currentTime;
+                                    window._segments.forEach(s => {
+                                        if (curr >= s.segment[0] && curr < s.segment[1]) {
+                                            video.currentTime = s.segment[1];
+                                        }
                                     });
-                                };
+                                }
 
-                                // Ejecución continua
-                                setInterval(() => {
-                                    forcePremium();
-                                    killAds();
-                                }, 100); 
+                                // 3. Detección de videoID para SponsorBlock
+                                const params = new URLSearchParams(window.location.search);
+                                const vId = params.get('v');
+                                if (vId && window._lastVId !== vId) {
+                                    window._lastVId = vId;
+                                    skipSponsors(vId);
+                                }
 
-                                // 3. PROTECCIÓN CONTRA PAUSAS (Background Play)
-                                Object.defineProperty(document, 'visibilityState', { get: () => 'visible' });
-                                Object.defineProperty(document, 'hidden', { get: () => false });
-                            })();
-                        </script>
-                        <style>
-                            /* Ocultar anuncios por CSS para que no parpadeen */
-                            .ad-showing, .ad-interrupting, ytm-promoted-video-renderer, 
-                            ytm-ad-slot-renderer, .ytp-ad-overlay-container, 
-                            .ytp-paid-content-overlay { display: none !important; }
-                        </style>`;
+                                // 4. Limpieza de interfaz
+                                document.querySelectorAll('ytm-promoted-video-renderer, ytm-ad-slot-renderer, #player-ads, .ytp-ad-overlay-container').forEach(e => e.remove());
+                            }, 50);
 
-                        const modifiedHtml = html.replace('<head>', '<head>' + extremeScript);
-                        return new Response(modifiedHtml, {
-                            headers: response.headers
-                        });
-                    });
-                })
-                .catch(() => fetch(event.request))
+                            // --- D. BACKGROUND PLAY & PREMIUM TRICKS ---
+                            Object.defineProperty(document, 'visibilityState', { get: () => 'visible' });
+                            Object.defineProperty(document, 'hidden', { get: () => false });
+                            window.ytcfg = window.ytcfg || {};
+                            const oldSet = window.ytcfg.set;
+                            window.ytcfg.set = function() {
+                                if (arguments[0]) {
+                                    arguments[0].IS_PREMIUM = true;
+                                    if (arguments[0].PLAYER_VARS) arguments[0].PLAYER_VARS.adformat = null;
+                                }
+                                return oldSet ? oldSet.apply(this, arguments) : null;
+                            };
+                        })();
+                    </script>
+                    <style>
+                        .ad-showing, .ad-interrupting, ytm-promoted-video-renderer, 
+                        ytm-ad-slot-renderer, .ytp-ad-overlay-container, 
+                        .ytp-paid-content-overlay, ytm-companion-ad-renderer { display: none !important; }
+                    </style>`;
+
+                    const modified = html.replace('<head>', '<head>' + finalScript);
+                    return new Response(modified, { headers: response.headers });
+                });
+            })
         );
         return;
     }
-
     event.respondWith(fetch(event.request));
 });
