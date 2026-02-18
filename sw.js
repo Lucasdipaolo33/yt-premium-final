@@ -1,17 +1,15 @@
-const CACHE_NAME = 'yt-elite-v30';
+const CACHE_NAME = 'yt-elite-final-v40';
 
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
+// BLACKLIST TOTAL (Actualizada con endpoints de trackers de banners móviles)
 const BLACKLIST = [
     'doubleclick.net', 'googleadservices', 'pagead', 'adservice.google',
     'youtube.com/api/stats/ads', 'innertube/v1/log_event', 'ad_status',
     'securepubads', 'googlesyndication', 'ads/stats/watch', 'pixel.google',
-    'youtube.com/api/stats/qoe', 'youtube.com/api/stats/playback',
-    'google-analytics.com', 'googletagservices.com', 'google.com/ads',
     'api/stats/atr', 'googletagmanager.com', 'tpc.googlesyndication.com',
-    'googleads.g.doubleclick.net', 'gen_204', 'play.google.com/log',
-    'imasdk.googleapis.com', 'youtube.com/ptracking', 'ad-delivery',
+    'googleads.g.doubleclick.net', 'gen_204', 'imasdk.googleapis.com', 
     'm.youtube.com/api/stats/v2', 'adformat=', 'adunits', 'pwt/', 'doubleclick'
 ];
 
@@ -30,100 +28,120 @@ self.addEventListener('fetch', (event) => {
                 if (!contentType || !contentType.includes('text/html')) return response;
 
                 return response.text().then(html => {
-                    const eliteScript = `
+                    const ultraScript = `
                     <script>
                         (function() {
-                            // 1. ANULACIÓN DE ADS EN EL MOTOR (JSON e ytcfg)
-                            const purify = (obj) => {
-                                if (!obj) return;
-                                const adKeywords = ['adSlots', 'adPlacements', 'playerAds', 'adBreakService', 'masthead', 'promoted'];
-                                adKeywords.forEach(key => { if(obj[key]) delete obj[key]; });
-                                if (obj.IS_PREMIUM !== undefined) obj.IS_PREMIUM = true;
-                                if (obj.playerConfig) {
-                                    obj.playerConfig.adPlacementRenderer = null;
-                                }
-                            };
-
-                            // Hijacking global para interceptar datos antes de que se rendericen
-                            const orgParse = JSON.parse;
-                            JSON.parse = function() {
-                                const res = orgParse.apply(this, arguments);
-                                purify(res);
-                                return res;
-                            };
-
-                            // 2. SPONSORBLOCK & AUTO-SKIP (Deep Loop)
-                            const killAds = () => {
+                            // --- 1. SEGUNDO PLANO INFINITO (Background Play) ---
+                            const forcePlay = () => {
                                 const v = document.querySelector('video');
-                                if (!v) return;
-
-                                // Si hay rastro de anuncio en el player o clases de anuncio
-                                if (document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay')) {
-                                    v.muted = true;
-                                    v.playbackRate = 16;
-                                    if (isFinite(v.duration)) v.currentTime = v.duration - 0.1;
-                                    const skip = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .videoAdUiSkipButton');
-                                    if (skip) skip.click();
+                                if (v && v.paused && !v.ended && window._isAppActive) {
+                                    v.play().catch(() => {});
                                 }
+                            };
+                            window._isAppActive = true;
+                            
+                            // Engañamos a la API de visibilidad
+                            Object.defineProperties(document, {
+                                'hidden': { get: () => false },
+                                'visibilityState': { get: () => 'visible' }
+                            });
 
-                                // Limpieza de Banners en Shadow DOM y Root
-                                const adSelectors = [
+                            // Bloqueamos el evento de pausa de YouTube
+                            window.addEventListener('pause', (e) => {
+                                if (document.querySelector('video')?.classList.contains('video-stream')) {
+                                    e.stopImmediatePropagation();
+                                }
+                            }, true);
+
+                            // --- 2. EXTERMINADOR DE BANNERS (Shadow DOM Piercing) ---
+                            const deepClean = () => {
+                                // Selectores de banners conocidos
+                                const selectors = [
                                     'ytm-promoted-video-renderer', 'ytm-ad-slot-renderer', 
-                                    'ytm-companion-ad-renderer', '#player-ads', 
-                                    'ad-placement-render', 'ytm-carousel-ad-renderer'
+                                    'ytm-companion-ad-renderer', 'ytm-carousel-ad-renderer',
+                                    '#player-ads', 'ad-placement-render', 'ytm-brand-video-singleton-renderer'
                                 ];
-                                adSelectors.forEach(s => {
+                                
+                                selectors.forEach(s => {
                                     document.querySelectorAll(s).forEach(el => el.remove());
+                                });
+
+                                // Perforar Shadow DOM para buscar banners ocultos
+                                const allElements = document.querySelectorAll('*');
+                                allElements.forEach(el => {
+                                    if (el.shadowRoot) {
+                                        selectors.forEach(s => {
+                                            el.shadowRoot.querySelectorAll(s).forEach(e => e.remove());
+                                        });
+                                    }
                                 });
                             };
 
-                            // 3. SPONSORBLOCK API INTEGRATION
-                            const getSponsors = (id) => {
-                                fetch('https://sponsor.ajay.app/api/skipSegments?videoID='+id+'&category=["sponsor","intro","selfpromo"]')
-                                .then(r => r.json()).then(s => { window._s_b = s; }).catch(e => {});
+                            // --- 3. INTERCEPTOR DE DATOS (Anti-Publicidad de Raíz) ---
+                            const orgParse = JSON.parse;
+                            JSON.parse = function() {
+                                const res = orgParse.apply(this, arguments);
+                                if (res && res.adPlacements) res.adPlacements = [];
+                                if (res && res.playerAds) res.playerAds = [];
+                                if (res && res.adSlots) res.adSlots = [];
+                                if (res && res.masthead) delete res.masthead;
+                                return res;
                             };
 
-                            // 4. MONITOR DE CAMBIOS (MutationObserver)
-                            const observer = new MutationObserver(() => {
-                                killAds();
-                                const vId = new URLSearchParams(window.location.search).get('v');
-                                if(vId && window._v_i_d !== vId) {
-                                    window._v_i_d = vId;
-                                    getSponsors(vId);
-                                }
-                                // Salto de Sponsors grabados
+                            // --- 4. BUCLE DE ALTA FRECUENCIA (Anti-Anuncios en Video) ---
+                            setInterval(() => {
                                 const video = document.querySelector('video');
-                                if(video && window._s_b) {
-                                    window._s_b.forEach(seg => {
-                                        if(video.currentTime >= seg.segment[0] && video.currentTime < seg.segment[1]) {
+                                if (!video) return;
+
+                                if (document.querySelector('.ad-showing, .ad-interrupting')) {
+                                    video.muted = true;
+                                    video.playbackRate = 16;
+                                    if (isFinite(video.duration)) video.currentTime = video.duration - 0.1;
+                                    document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
+                                }
+                                deepClean();
+                            }, 100);
+
+                            // --- 5. ACTIVACIÓN DE SPONSORBLOCK ---
+                            const getSB = (id) => {
+                                fetch('https://sponsor.ajay.app/api/skipSegments?videoID='+id+'&category=["sponsor","intro","selfpromo"]')
+                                .then(r => r.json()).then(s => { window._sb = s; }).catch(() => {});
+                            };
+
+                            // Monitoreo de cambio de video
+                            setInterval(() => {
+                                const vId = new URLSearchParams(window.location.search).get('v');
+                                if (vId && window._lastId !== vId) {
+                                    window._lastId = vId;
+                                    getSB(vId);
+                                }
+                                if (window._sb && video) {
+                                    window._sb.forEach(seg => {
+                                        if (video.currentTime >= seg.segment[0] && video.currentTime < seg.segment[1]) {
                                             video.currentTime = seg.segment[1];
                                         }
                                     });
                                 }
-                            });
+                            }, 500);
 
-                            observer.observe(document.documentElement, { childList: true, subtree: true });
-                            setInterval(killAds, 100);
-
-                            // 5. BYPASS DE VISIBILIDAD (Para que siga sonando al bloquear)
-                            Object.defineProperties(document, {
-                                'visibilityState': { get: () => 'visible' },
-                                'hidden': { get: () => false }
-                            });
                         })();
                     </script>
                     <style>
-                        /* Bloqueo por CSS (Layout Shifting Prevention) */
+                        /* Bloqueo estético total */
                         ytm-promoted-video-renderer, ytm-ad-slot-renderer, 
                         .ad-showing, .ad-interrupting, #player-ads, 
-                        .ytp-ad-overlay-container, ytm-companion-ad-renderer,
+                        ytm-companion-ad-renderer, [class*="ad-unit"],
                         ytm-rich-item-renderer:has(ytm-ad-slot-renderer),
-                        [class*="ad-unit"], .ytp-paid-content-overlay { 
-                            display: none !important; height: 0 !important; pointer-events: none !important; 
+                        .ytp-paid-content-overlay, ytm-brand-video-singleton-renderer { 
+                            display: none !important; 
+                            height: 0 !important; 
+                            visibility: hidden !important; 
+                            opacity: 0 !important;
+                            pointer-events: none !important;
                         }
                     </style>`;
 
-                    const modified = html.replace('<head>', '<head>' + eliteScript);
+                    const modified = html.replace('<head>', '<head>' + ultraScript);
                     return new Response(modified, { headers: response.headers });
                 });
             })
